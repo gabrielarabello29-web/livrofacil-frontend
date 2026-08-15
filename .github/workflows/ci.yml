@@ -18,19 +18,51 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Use Node.js
+      - name: Show repo layout (debug)
+        run: |
+          echo "Workspace: $(pwd)"
+          ls -la
+          echo "Recursive tree (depth 3):"
+          find . -maxdepth 3 -mindepth 1 -print | sed -n '1,200p'
+
+      - name: Use Node.js (compatível com Vite)
         uses: actions/setup-node@v4
         with:
-          node-version: '18' # ou '20'
+          node-version: '24' # atende vite@8 requirements (>=22.12.0). Troque para '22' ou '24' conforme sua preferência.
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Find package.json and set working dir
+        id: findpkg
+        run: |
+          PKG=$(find . -maxdepth 6 -type f -name package.json | head -n1 || true)
+          if [ -z "$PKG" ]; then
+            echo "No package.json found in the repo workspace."
+            exit 1
+          fi
+          DIR=$(dirname "$PKG")
+          echo "package.json found at: $PKG"
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies (uses lockfile if present)
+        working-directory: ${{ steps.findpkg.outputs.dir }}
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "Using package-lock.json -> npm ci"
+            npm ci
+          elif [ -f yarn.lock ]; then
+            echo "Using yarn.lock -> yarn install --frozen-lockfile"
+            yarn install --frozen-lockfile
+          else
+            echo "No lockfile found -> npm install"
+            npm install
+          fi
 
       - name: Build
+        working-directory: ${{ steps.findpkg.outputs.dir }}
         env:
           NODE_ENV: production
         run: npm run build
 
-      - name: Run lint
+      - name: Run lint (optional)
+        working-directory: ${{ steps.findpkg.outputs.dir }}
         run: npm run lint || true
