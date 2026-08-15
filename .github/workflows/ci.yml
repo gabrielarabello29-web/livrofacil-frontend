@@ -25,12 +25,6 @@ jobs:
           echo "Recursive tree (depth 3):"
           find . -maxdepth 3 -mindepth 1 -print | sed -n '1,200p'
 
-      - name: Use Node.js (compatível com Vite)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24' # atende vite@8 requirements (>=22.12.0). Troque para '22' ou '24' conforme sua preferência.
-          cache: 'npm'
-
       - name: Find package.json and set working dir
         id: findpkg
         run: |
@@ -43,7 +37,14 @@ jobs:
           echo "package.json found at: $PKG"
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Install dependencies (uses lockfile if present)
+      - name: Use Node.js (setup and cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24' # ou '22' / '20' se preferir
+          cache: 'npm'
+          cache-dependency-path: ${{ steps.findpkg.outputs.dir }}/package-lock.json
+
+      - name: Install dependencies (uses lockfile)
         working-directory: ${{ steps.findpkg.outputs.dir }}
         run: |
           if [ -f package-lock.json ]; then
