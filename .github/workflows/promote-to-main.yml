@@ -1,0 +1,32 @@
+name: Criar PR para Main
+
+on:
+  push:
+    branches:
+      - develop
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-pr:
+    name: Criar Pull Request para Main
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Criar PR develop → main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head develop \
+            --title "Promover develop para main" \
+            --body "PR criado automaticamente após atualização da branch develop." \
+            || echo "Já existe um PR aberto de develop para main."
