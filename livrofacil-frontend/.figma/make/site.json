@@ -1,0 +1,10 @@
+{
+  "description": "A modern, responsive e-commerce platform for buying and managing books with separate client and admin areas, featuring browsing, cart, checkout, and admin dashboards.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
