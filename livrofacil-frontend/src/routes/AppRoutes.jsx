@@ -11,7 +11,7 @@ import Categorias from '../pages/Categorias'
 
 import Carrinho from '../pages/carrinho/Carrinho'
 import Checkout from '../pages/compra/Checkout'
-import CompraFinalizada from '../pages/compra/CompraFinalizada'
+import CompraFinalizada from '../pages\compra\CompraFinalizada'
 
 import Perfil from '../pages/cliente/Perfil'
 import Enderecos from '../pages/cliente/Enderecos'
