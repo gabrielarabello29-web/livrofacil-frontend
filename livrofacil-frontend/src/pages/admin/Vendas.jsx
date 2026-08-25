@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AdminSidebar from '../../components/AdminSidebar'
-import { pedidos_mock, vendaService } from '../../services/vendaService'
+import { pedidos_mock as pedidosMockFromService, vendaService } from '../../services/vendaService'
+import { pedidos_mock } from '../../services/pedidoService'
 import StatusActions from '../../components/StatusActions'
 
 const initial_pedidos = [
