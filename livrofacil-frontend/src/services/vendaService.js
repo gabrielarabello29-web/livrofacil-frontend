@@ -13,10 +13,8 @@ export const vendaService = {
   buscarVenda: async (id) => api.get(`/vendas/${id}`),
   listarVendas: async (filtros) => api.get('/vendas', { params: filtros }),
 
-  // Atualizar status (admin)
   atualizarStatusVenda: async (id, status) => api.patch(`/vendas/${id}/status`, { status }),
 
-  // Ações adicionais
   confirmarRecebimento: async (id) => api.patch(`/vendas/${id}/confirmar-recebimento`),
   cancelarVenda: async (id, motivo) => api.patch(`/vendas/${id}/cancelar`, { motivo }),
   informarDespacho: async (id, itemId, rastreamento) => api.post(`/vendas/${id}/itens/${itemId}/despacho`, { rastreamento }),

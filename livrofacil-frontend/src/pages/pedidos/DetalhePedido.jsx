@@ -62,14 +62,11 @@ export default function DetalhePedido() {
   }
 
   async function handleSolicitarTroca(itemId) {
-    if (!motivoTroca.trim()) {
-      alert('Informe o motivo da troca')
-      return
-    }
+    const motivo = motivoTroca || prompt('Motivo da troca:')
+    if (!motivo) { alert('Motivo obrigatório'); return }
     try {
-      await pedidoService.solicitarTrocaItem(pedido.id, itemId, { motivo: motivoTroca })
+      await pedidoService.solicitarTrocaItem(pedido.id, itemId, { motivo })
       alert('Solicitação de troca enviada')
-      // atualizar UI localmente (marcar item como solicitação)
       setPedido(p => ({
         ...p,
         itens: p.itens.map(i => i.id === itemId ? { ...i, statusItem: 'Troca solicitada' } : i)
@@ -125,7 +122,7 @@ export default function DetalhePedido() {
                       <p style={{ margin: 0, color: 'var(--text-muted)' }}>Status do item: {i.statusItem || '—'}</p>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {/* Client actions */}
+                      {/* Cliente: solicitar troca */}
                       <button className="btn-ghost" onClick={() => {
                         const confirmed = confirm(`Deseja solicitar troca do item "${i.titulo}"?`)
                         if (confirmed) {
@@ -135,7 +132,7 @@ export default function DetalhePedido() {
                       }}>Solicitar troca</button>
 
                       {/* Admin / fulfillment action: informar despacho */}
-                      {usuario?.role === 'admin' && (
+                      {usuario?.perfil === 'ADMIN' && (
                         <>
                           <input placeholder="Rastreamento" value={rastreamento} onChange={e => setRastreamento(e.target.value)} style={{ padding: 8, width: 180 }} />
                           <button className="btn-secondary" onClick={() => handleInformarDespacho(i.id)}>Informar despacho</button>
@@ -183,7 +180,7 @@ export default function DetalhePedido() {
               </ul>
 
               <h4 style={{ marginTop: 12 }}>Consultar cupons disponíveis</h4>
-              <button className="btn-secondary" onClick={() => navigate('/admin/cupons')}>Ir para cupons</button>
+              <button className="btn-secondary" onClick={() => navigate('/cliente/cupons')}>Ir para cupons</button>
             </div>
           </aside>
         </div>
