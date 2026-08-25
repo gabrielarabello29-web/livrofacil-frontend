@@ -19,7 +19,6 @@ export default function StatusActions({ statusAtual, vendaId, onAtualizado }) {
     if (!confirm(`Alterar status para "${novo}"?`)) return
     setLoading(true)
     try {
-      // use vendaService if backend separate; fallback to pedidoService.alterarStatus on your backend
       await vendaService.atualizarStatusVenda(vendaId, novo)
       onAtualizado && onAtualizado(novo)
     } catch (err) {
