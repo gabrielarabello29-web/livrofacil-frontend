@@ -33,6 +33,9 @@ import AdminAnalise from '../pages/admin/AnaliseVendas'
 import AdminUsuarios from '../pages/admin/Usuarios'
 import AdminConfiguracoes from '../pages/admin/Configuracoes'
 
+// Detalhe do pedido (cliente)
+import DetalhePedido from '../pages/pedidos/DetalhePedido'
+
 function RotaProtegida({ children, perfil }) {
   const { usuario } = useAuth()
   if (!usuario) return <Navigate to="/login" replace />
@@ -60,6 +63,7 @@ export default function AppRoutes() {
         <Route path="/enderecos" element={<RotaProtegida><Enderecos /></RotaProtegida>} />
         <Route path="/cartoes" element={<RotaProtegida><Cartoes /></RotaProtegida>} />
         <Route path="/meus-pedidos" element={<RotaProtegida><Historico /></RotaProtegida>} />
+        <Route path="/meus-pedidos/:id" element={<RotaProtegida><DetalhePedido /></RotaProtegida>} />
         <Route path="/trocas" element={<RotaProtegida><MinhasTrocas /></RotaProtegida>} />
         <Route path="/trocas/nova" element={<RotaProtegida><SolicitarTroca /></RotaProtegida>} />
 

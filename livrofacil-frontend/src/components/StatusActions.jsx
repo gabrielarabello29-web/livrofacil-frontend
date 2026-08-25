@@ -19,7 +19,8 @@ export default function StatusActions({ statusAtual, vendaId, onAtualizado }) {
     if (!confirm(`Alterar status para "${novo}"?`)) return
     setLoading(true)
     try {
-      await vendaService.atualizarStatusVenda(vendaId, novo)
+      const safeId = String(vendaId).replace(/^#/, '')
+      await vendaService.atualizarStatusVenda(encodeURIComponent(safeId), novo)
       onAtualizado && onAtualizado(novo)
     } catch (err) {
       console.error(err)
