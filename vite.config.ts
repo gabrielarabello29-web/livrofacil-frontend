@@ -3,7 +3,13 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 
-import siteConfiguration from './.figma/make/site.json'
+// Only load Figma config if it exists
+let siteConfiguration: any = {}
+try {
+  siteConfiguration = await import('./.figma/make/site.json').then(m => m.default).catch(() => ({}))
+} catch {
+  // Figma config is optional for local development
+}
 
 // Vite config — https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -22,7 +28,7 @@ export default defineConfig(({ mode }) => {
       figmaSiteConfiguration(siteConfiguration),
       figmaErrorOverlayReplay(),
       figmaReactRefreshBoundaryFallback(),
-      figmaMakeKitPlugin({ storiesGlob: '/src/**/*.stories.{ts,tsx,js,jsx}' }),
+      ...(process.env.FIGMA_ENABLED === 'true' ? [figmaMakeKitPlugin({ storiesGlob: '/src/**/*.stories.{ts,tsx,js,jsx}' })] : []),
     ],
     resolve: {
       alias: {
@@ -30,14 +36,14 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      host: '0.0.0.0',
-      port: parseInt(process.env.PORT || '8443'),
-      strictPort: true,
+      host: 'localhost',
+      port: parseInt(process.env.PORT || '5173'),
+      strictPort: false,
       watch: { ignored: ['**/.figma/**'] },
     },
     preview: {
-      host: '0.0.0.0',
-      port: parseInt(process.env.PORT || '8443'),
+      host: 'localhost',
+      port: parseInt(process.env.PORT || '4173'),
     },
   }
 })
@@ -81,11 +87,11 @@ function figmaSiteConfiguration(config: FigmaSiteConfiguration): Plugin {
     return html.replace(`<!-- ${slotName} -->`, content)
   }
 
-  const title = config.title ?? "Figma Make App"
-  const description = config.description ?? ''
+  const title = config.title ?? "LivroFácil"
+  const description = config.description ?? 'Uma plataforma para facilitar a leitura'
   const favicon = config.icons?.icon ?? ''
   const socialImage = config.openGraph?.image ?? ''
-  const language = sanitizeHtmlValue(config.language) || 'en'
+  const language = sanitizeHtmlValue(config.language) || 'pt'
   const googleAnalyticsId = sanitizeHtmlValue(config.analytics?.googleAnalyticsId)
   const headStart = config.customScripts?.headStart ?? ''
   const headEnd = config.customScripts?.headEnd ?? ''
