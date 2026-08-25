@@ -6,8 +6,32 @@ async function request(method, path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   })
-  if (!res.ok) throw new Error(`Erro ${res.status}: ${res.statusText}`)
-  return res.json()
+
+  if (!res.ok) {
+    // try to extract any error body for debugging
+    let text = ''
+    try {
+      text = await res.text()
+    } catch (e) {
+      // ignore
+    }
+    throw new Error(`Erro ${res.status}: ${res.statusText}${text ? ` - ${text}` : ''}`)
+  }
+
+  // No content
+  if (res.status === 204) return null
+
+  const ct = res.headers.get('content-type') || ''
+  if (ct.includes('application/json')) {
+    try {
+      return await res.json()
+    } catch (e) {
+      // fallback if JSON parse fails
+      return null
+    }
+  }
+
+  return await res.text()
 }
 
 export const api = {
