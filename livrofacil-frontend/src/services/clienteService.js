@@ -11,4 +11,7 @@ export const clienteService = {
   adicionarCartao: async (id, data) => api.post(`/clientes/${id}/cartoes`, data),
   removerCartao: async (clienteId, cartaoId) => api.delete(`/clientes/${clienteId}/cartoes/${cartaoId}`),
   alterarSenha: async (id, data) => api.patch(`/clientes/${id}/senha`, data),
+
+  // Inativar cliente (soft-delete / desativação)
+  inativarCliente: async (id) => api.patch(`/clientes/${id}/inativar`),
 }

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import AdminSidebar from '../../components/AdminSidebar'
-import { pedidos_mock } from '../../services/vendaService'
+import { pedidos_mock, vendaService } from '../../services/vendaService'
+import StatusActions from '../../components/StatusActions'
 
-const todos_pedidos = [
+const initial_pedidos = [
   { id: '#1089', cliente: 'Ana Silva', data: '20/01/2025', valor: 97.80, status: 'Entregue', pagamento: 'Cartão' },
   { id: '#1088', cliente: 'Carlos Mendes', data: '19/01/2025', valor: 149.70, status: 'Em transporte', pagamento: 'PIX' },
   { id: '#1087', cliente: 'Mariana Costa', data: '19/01/2025', valor: 44.90, status: 'Em processamento', pagamento: 'Cartão' },
@@ -24,12 +25,18 @@ const todos_status = ['Todos', 'Em processamento', 'Aprovada', 'Reprovada', 'Em 
 export default function AdminVendas() {
   const [busca, setBusca] = useState('')
   const [statusFiltro, setStatusFiltro] = useState('Todos')
+  const [pedidos, setPedidos] = useState(initial_pedidos)
 
-  const filtrados = todos_pedidos.filter(p => {
+  const filtrados = pedidos.filter(p => {
     if (statusFiltro !== 'Todos' && p.status !== statusFiltro) return false
     if (busca && !p.id.includes(busca) && !p.cliente.toLowerCase().includes(busca.toLowerCase())) return false
     return true
   })
+
+  async function handleStatusAtualizado(pedidoId, novoStatus) {
+    // update local state optimistically
+    setPedidos(prev => prev.map(p => p.id === pedidoId ? { ...p, status: novoStatus } : p))
+  }
 
   return (
     <div className="admin-layout">
@@ -39,7 +46,7 @@ export default function AdminVendas() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
             <div>
               <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800 }}>Pedidos</h1>
-              <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>{todos_pedidos.length} pedidos no total</p>
+              <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>{pedidos.length} pedidos no total</p>
             </div>
           </div>
 
@@ -72,8 +79,13 @@ export default function AdminVendas() {
                     <td style={{ fontWeight: 700 }}>R$ {p.valor.toFixed(2).replace('.', ',')}</td>
                     <td><span className={`badge ${statusCores[p.status] || 'badge-gray'}`}>{p.status}</span></td>
                     <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{p.pagamento}</td>
-                    <td>
+                    <td style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }}>Ver</button>
+                      <StatusActions
+                        statusAtual={p.status}
+                        vendaId={p.id}
+                        onAtualizado={(novo) => handleStatusAtualizado(p.id, novo)}
+                      />
                     </td>
                   </tr>
                 ))}
