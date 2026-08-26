@@ -44,7 +44,7 @@ export default function Historico() {
             <div style={{ display: 'flex', gap: 6, marginBottom: 24, flexWrap: 'wrap' }}>
               {filtros.map(f => (
                 <button key={f} onClick={() => setFiltro(f)}
-                  style={{ padding: '7px 16px', borderRadius: 24, border: `1.5px solid ${filtro === f ? 'var(--primary)' : '#E5E7EB'}`, background: filtro === f ? 'var(--primary)' : '#fff', color: filtro === f ? '#fff' : 'var(--text)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+                  style={{ padding: '7px 16px', borderRadius: 24, border: `1.5px solid ${filtro === f ? 'var(--primary)' : '#E5E7EB'}`, background: filtro === f ? 'var(--primary)' : '#fff', color: filtro === f ? '#fff' : 'inherit' }}>
                   {f}
                 </button>
               ))}
@@ -70,7 +70,8 @@ export default function Historico() {
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <p style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 800, color: 'var(--primary)' }}>R$ {pedido.valor.toFixed(2).replace('.', ',')}</p>
-                        <button className="btn-secondary" style={{ padding: '6px 14px', fontSize: 13 }}>Ver detalhes</button>
+                        {/** Link para detalhe do pedido (remove # se houver) **/}
+                        <Link to={`/meus-pedidos/${String(pedido.id).replace(/^#/, '')}`} className="btn-secondary" style={{ padding: '6px 14px', fontSize: 13 }}>Ver detalhes</Link>
                       </div>
                     </div>
                     <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>

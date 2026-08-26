@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { autenticar, cadastrar } from '../mock/authMock'
+import { autenticar, cadastrar, excluirUsuario } from '../mock/authMock'
 
 const AuthContext = createContext(null)
 
@@ -41,11 +41,21 @@ export function AuthProvider({ children }) {
     setUsuario((prev) => ({ ...prev, ...dados }))
   }
 
+  function excluirConta() {
+    if (!usuario) return { sucesso: false, mensagem: 'Nenhum usuário autenticado.' }
+    const resultado = excluirUsuario(usuario.id)
+    if (resultado.sucesso) {
+      setUsuario(null)
+      return { sucesso: true }
+    }
+    return resultado
+  }
+
   const isAdmin = usuario?.perfil === 'ADMIN'
   const isCliente = usuario?.perfil === 'CLIENTE'
 
   return (
-    <AuthContext.Provider value={{ usuario, login, registrar, logout, atualizarUsuario, isAdmin, isCliente }}>
+    <AuthContext.Provider value={{ usuario, login, registrar, logout, atualizarUsuario, excluirConta, isAdmin, isCliente }}>
       {children}
     </AuthContext.Provider>
   )

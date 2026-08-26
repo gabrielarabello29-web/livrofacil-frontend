@@ -18,7 +18,8 @@ export default function DetalhePedido() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await pedidoService.buscarPedido(id)
+        const safeParam = String(id).replace(/^#/, '')
+        const res = await pedidoService.buscarPedido(encodeURIComponent(safeParam))
         setPedido(res.data || res)
       } catch (err) {
         console.error(err)
@@ -36,7 +37,8 @@ export default function DetalhePedido() {
   async function handleConfirmarRecebimento() {
     if (!confirm('Confirmar recebimento do pedido?')) return
     try {
-      await pedidoService.confirmarRecebimento(pedido.id)
+      const safeId = String(pedido.id).replace(/^#/, '')
+      await pedidoService.confirmarRecebimento(encodeURIComponent(safeId))
       alert('Recebimento confirmado')
       setPedido(p => ({ ...p, status: 'Entregue' }))
     } catch (err) {
@@ -52,7 +54,8 @@ export default function DetalhePedido() {
     }
     if (!confirm('Deseja realmente cancelar o pedido?')) return
     try {
-      await pedidoService.cancelarPedido(pedido.id, motivoCancelamento)
+      const safeId = String(pedido.id).replace(/^#/, '')
+      await pedidoService.cancelarPedido(encodeURIComponent(safeId), motivoCancelamento)
       alert('Pedido cancelado')
       setPedido(p => ({ ...p, status: 'Cancelado' }))
     } catch (err) {
@@ -65,7 +68,8 @@ export default function DetalhePedido() {
     const motivo = motivoTroca || prompt('Motivo da troca:')
     if (!motivo) { alert('Motivo obrigatório'); return }
     try {
-      await pedidoService.solicitarTrocaItem(pedido.id, itemId, { motivo })
+      const safeId = String(pedido.id).replace(/^#/, '')
+      await pedidoService.solicitarTrocaItem(encodeURIComponent(safeId), itemId, { motivo })
       alert('Solicitação de troca enviada')
       setPedido(p => ({
         ...p,
@@ -81,7 +85,8 @@ export default function DetalhePedido() {
   async function handleInformarDespacho(itemId) {
     if (!confirm('Informar despacho deste item?')) return
     try {
-      await pedidoService.informarDespachoItem(pedido.id, itemId, { rastreamento })
+      const safeId = String(pedido.id).replace(/^#/, '')
+      await pedidoService.informarDespachoItem(encodeURIComponent(safeId), itemId, { rastreamento })
       alert('Despacho informado')
       setPedido(p => ({
         ...p,
