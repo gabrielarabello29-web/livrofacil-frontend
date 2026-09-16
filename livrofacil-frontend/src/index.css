@@ -108,6 +108,10 @@ body {
 }
 .input-field:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
 .input-field::placeholder { color: var(--text-light); }
+.input-field.field-error {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08);
+}
 
 .label { display: block; font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
 

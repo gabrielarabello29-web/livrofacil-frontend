@@ -4,6 +4,19 @@ import Header from '../../components/Header'
 import Footer from '../../components/Footer'
 import ClienteSidebar from '../../components/ClienteSidebar'
 import { useAuth } from '../../context/AuthContext'
+import { clienteService } from '../../services/clienteService'
+
+function validarSenha(senha) {
+  return /^(?=.{8,}$)(?=.*[A-Z])(?=.*[^A-Za-z0-9]).*$/.test(senha)
+}
+
+function mascararCpf(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '').slice(0, 11)
+  if (digitos.length <= 3) return digitos
+  if (digitos.length <= 6) return `${digitos.slice(0, 3)}.${digitos.slice(3)}`
+  if (digitos.length <= 9) return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6)}`
+  return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6, 9)}-${digitos.slice(9)}`
+}
 
 export default function Perfil() {
   const { usuario, atualizarUsuario, excluirConta } = useAuth()
@@ -11,12 +24,15 @@ export default function Perfil() {
   const [form, setForm] = useState({
     nome: usuario?.nome || '',
     email: usuario?.email || '',
+    cpf: usuario?.cpf || '',
     telefone: usuario?.telefone || '',
     dataNascimento: usuario?.dataNascimento || '',
+    genero: usuario?.genero || '',
   })
   const [senhas, setSenhas] = useState({ atual: '', nova: '', confirmar: '' })
   const [salvando, setSalvando] = useState(false)
   const [sucesso, setSucesso] = useState('')
+  const [erro, setErro] = useState('')
 
   function setField(field) {
     return (e) => setForm((p) => ({ ...p, [field]: e.target.value }))
@@ -28,27 +44,61 @@ export default function Perfil() {
 
   async function salvarPerfil(e) {
     e.preventDefault()
+    setErro('')
+    if (form.dataNascimento && form.dataNascimento > new Date().toISOString().slice(0, 10)) {
+      setErro('A data de nascimento não pode ser futura.')
+      return
+    }
     setSalvando(true)
-    await new Promise((r) => setTimeout(r, 600))
-    atualizarUsuario({ nome: form.nome, telefone: form.telefone, dataNascimento: form.dataNascimento })
-    setSalvando(false)
-    setSucesso('Perfil atualizado com sucesso!')
-    setTimeout(() => setSucesso(''), 3000)
+    try {
+        const atualizado = await clienteService.atualizarCliente(usuario.id, {
+        nome: form.nome.trim(),
+        email: form.email,
+          cpf: form.cpf.replace(/\D/g, ''),
+        telefone: form.telefone,
+        dataNascimento: form.dataNascimento,
+          genero: form.genero,
+      })
+        atualizarUsuario({ ...atualizado, nome: form.nome, cpf: form.cpf, telefone: form.telefone, dataNascimento: form.dataNascimento, genero: form.genero })
+      setSucesso('Perfil atualizado com sucesso!')
+      setTimeout(() => setSucesso(''), 3000)
+    } catch (error) {
+      setErro(error?.status === 404 ? 'Registro não encontrado.' : error?.message || 'Não foi possível atualizar o perfil.')
+    } finally {
+      setSalvando(false)
+    }
   }
 
   async function salvarSenha(e) {
     e.preventDefault()
-    if (!senhas.nova || senhas.nova !== senhas.confirmar) {
-      alert('As senhas não conferem.')
+    if (!senhas.atual) {
+      setErro('Informe a senha atual.')
+      return
+    }
+    if (!validarSenha(senhas.nova)) {
+      setErro('A nova senha deve ter no mínimo 8 caracteres, uma letra maiúscula e um caractere especial.')
+      return
+    }
+    if (senhas.nova !== senhas.confirmar) {
+      setErro('As senhas não coincidem.')
       return
     }
     setSalvando(true)
-    await new Promise((r) => setTimeout(r, 600))
-    // mock: não alteramos a senha real no mock; apenas mostra sucesso
-    setSalvando(false)
-    setSucesso('Senha alterada com sucesso!')
-    setSenhas({ atual: '', nova: '', confirmar: '' })
-    setTimeout(() => setSucesso(''), 3000)
+    setErro('')
+    try {
+      await clienteService.alterarSenha(usuario.id, {
+        senhaAtual: senhas.atual,
+        novaSenha: senhas.nova,
+        confirmarNovaSenha: senhas.confirmar,
+      })
+      setSucesso('Senha alterada com sucesso!')
+      setSenhas({ atual: '', nova: '', confirmar: '' })
+      setTimeout(() => setSucesso(''), 3000)
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível alterar a senha.')
+    } finally {
+      setSalvando(false)
+    }
   }
 
   async function handleExcluirConta() {
@@ -90,6 +140,7 @@ export default function Perfil() {
                 ✓ {sucesso}
               </div>
             )}
+            {erro && <div style={{ padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 14, color: '#991B1B' }}>{erro}</div>}
 
             {/* Avatar + dados */}
             <div className="card" style={{ padding: 28 }}>
@@ -133,6 +184,10 @@ export default function Perfil() {
                     <label className="label">Telefone</label>
                     <input className="input-field" value={form.telefone} onChange={setField('telefone')} />
                   </div>
+                  <div>
+                    <label className="label">CPF</label>
+                    <input className="input-field" inputMode="numeric" pattern="[0-9.\-]*" value={mascararCpf(form.cpf)} onChange={(e) => setForm((atual) => ({ ...atual, cpf: mascararCpf(e.target.value) }))} maxLength={14} />
+                  </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: 12 }}>
@@ -143,6 +198,16 @@ export default function Perfil() {
                   <div>
                     <label className="label">Data de nascimento</label>
                     <input className="input-field" type="date" value={form.dataNascimento} onChange={setField('dataNascimento')} />
+                  </div>
+                  <div>
+                    <label className="label">Gênero</label>
+                    <select className="input-field" value={form.genero} onChange={setField('genero')}>
+                      <option value="">Selecione</option>
+                      <option value="MASCULINO">Masculino</option>
+                      <option value="FEMININO">Feminino</option>
+                      <option value="OUTRO">Outro</option>
+                      <option value="PREFIRO_NAO_INFORMAR">Prefiro não informar</option>
+                    </select>
                   </div>
                 </div>
 
@@ -181,21 +246,6 @@ export default function Perfil() {
               </form>
             </div>
 
-            {/* Links rápidos (endereços, cartões, pedidos) */}
-            <div className="card" style={{ padding: 20 }}>
-              <h3 style={{ marginTop: 0 }}>Preferências e histórico</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <button className="btn-secondary" onClick={() => navigate('/enderecos')} style={{ textAlign: 'left' }}>
-                  Meus endereços
-                </button>
-                <button className="btn-secondary" onClick={() => navigate('/cartoes')} style={{ textAlign: 'left' }}>
-                  Meus cartões
-                </button>
-                <button className="btn-secondary" onClick={() => navigate('/meus-pedidos')} style={{ textAlign: 'left' }}>
-                  Meus pedidos
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </main>

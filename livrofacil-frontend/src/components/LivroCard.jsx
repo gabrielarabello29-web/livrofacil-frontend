@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useCarrinho } from '../context/CarrinhoContext'
 import { useState } from 'react'
+import LivroCover from '../features/livros/components/LivroCover'
 
 export default function LivroCard({ livro }) {
   const { adicionarItem } = useCarrinho()
@@ -14,10 +15,6 @@ export default function LivroCard({ livro }) {
     setTimeout(() => setAdicionado(false), 1500)
   }
 
-  const desconto = livro.precoOriginal
-    ? Math.round((1 - livro.preco / livro.precoOriginal) * 100)
-    : 0
-
   return (
     <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'box-shadow 0.2s, transform 0.2s', cursor: 'pointer', position: 'relative' }}
       onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(124,58,237,0.12)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
@@ -30,31 +27,17 @@ export default function LivroCard({ livro }) {
         </svg>
       </button>
 
-      {desconto > 0 && (
-        <span style={{ position: 'absolute', top: 10, left: 10, zIndex: 2, background: '#10B981', color: '#fff', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>-{desconto}%</span>
-      )}
-
       <Link to={`/livros/${livro.id}`} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', flex: 1 }}>
         <div style={{ background: '#F5F3FF', height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <img src={livro.capa} alt={livro.titulo} style={{ height: '100%', width: '100%', objectFit: 'cover' }} loading="lazy" />
+          <LivroCover src={livro.imagemUrl} alt={`Capa de ${livro.titulo}`} style={{ width: '100%', height: '100%' }} />
         </div>
         <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>{livro.categoria}</p>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>{livro.categoriaNomes?.join(', ') || 'Categorias não informadas'}</p>
           <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{livro.titulo}</h3>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{livro.autor}</p>
-
-          {livro.avaliacao && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-              <span style={{ color: '#F59E0B', fontSize: 12 }}>{'★'.repeat(Math.floor(livro.avaliacao))}</span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{livro.avaliacao} ({(livro.avaliacoes || 0).toLocaleString('pt-BR')})</span>
-            </div>
-          )}
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{livro.autorNome || 'Autor não informado'}</p>
 
           <div style={{ marginTop: 4 }}>
-            {livro.precoOriginal && (
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'line-through', display: 'block' }}>R$ {livro.precoOriginal.toFixed(2).replace('.', ',')}</span>
-            )}
-            <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--primary)' }}>R$ {livro.preco.toFixed(2).replace('.', ',')}</span>
+            <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--primary)' }}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(livro.valorVenda || 0))}</span>
           </div>
         </div>
       </Link>

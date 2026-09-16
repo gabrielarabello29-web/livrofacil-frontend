@@ -1,4 +1,5 @@
-import { livros_mock } from './livroService'
+import { listarLivrosAtivos, buscarLivrosPorTitulo } from '../features/livros/api/livrosApi'
+import { normalizarLivroDaApi } from '../features/livros/utils/livroFormatters'
 
 const normalizarTexto = (texto) => {
   return texto
@@ -192,12 +193,11 @@ const encontrarCategoria = (mensagem) => {
   )
 }
 
-const buscarLivrosPorCategoria = (categoria) => {
-  return livros_mock
-    .filter(
-      (livro) =>
-        normalizarTexto(livro.categoria) === normalizarTexto(categoria)
-    )
+const buscarLivrosPorCategoria = async (categoria) => {
+  const livros = await listarLivrosAtivos()
+  return livros
+    .map(normalizarLivroDaApi)
+    .filter((livro) => (livro.categoriaNomes || []).some((nome) => normalizarTexto(nome) === normalizarTexto(categoria)))
     .slice(0, 3)
 }
 
@@ -206,10 +206,8 @@ export const aiService = {
     if (categoria) {
       return buscarLivrosPorCategoria(categoria)
     }
-
-    return [...livros_mock]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3)
+    const livros = await listarLivrosAtivos()
+    return livros.map(normalizarLivroDaApi).slice(0, 3)
   },
 
   enviarMensagem: async (mensagem) => {
@@ -261,9 +259,7 @@ export const aiService = {
       msg.includes('mais avaliado') ||
       msg.includes('mais avaliados')
     ) {
-      const livros = [...livros_mock]
-        .sort((a, b) => b.avaliacoes - a.avaliacoes)
-        .slice(0, 3)
+      const livros = (await listarLivrosAtivos()).map(normalizarLivroDaApi).slice(0, 3)
 
       return {
         texto: respostasGerais.maisVendidos,
@@ -285,9 +281,7 @@ export const aiService = {
       msg.includes('preço') ||
       msg.includes('desconto')
     ) {
-      const livros = [...livros_mock]
-        .sort((a, b) => a.preco - b.preco)
-        .slice(0, 3)
+      const livros = (await listarLivrosAtivos()).map(normalizarLivroDaApi).sort((a, b) => Number(a.valorVenda) - Number(b.valorVenda)).slice(0, 3)
 
       return {
         texto: respostasGerais.baratos,
@@ -304,7 +298,7 @@ export const aiService = {
     if (categoriaEncontrada) {
       const [categoria, dados] = categoriaEncontrada
 
-      const livros = buscarLivrosPorCategoria(categoria)
+      const livros = await buscarLivrosPorCategoria(categoria)
 
       return {
         texto:
@@ -319,15 +313,7 @@ export const aiService = {
     // BUSCA POR TÍTULO OU AUTOR
     // ==========================================
 
-    const busca = livros_mock.filter((livro) => {
-      const titulo = normalizarTexto(livro.titulo)
-      const autor = normalizarTexto(livro.autor)
-
-      return (
-        titulo.includes(msg) ||
-        autor.includes(msg)
-      )
-    })
+    const busca = (await buscarLivrosPorTitulo(mensagem)).map(normalizarLivroDaApi).filter((livro) => livro.ativo)
 
     if (busca.length > 0) {
       return {
@@ -349,9 +335,7 @@ export const aiService = {
       msg.includes('sugestoes') ||
       msg.includes('quero ler')
     ) {
-      const livros = [...livros_mock]
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3)
+      const livros = (await listarLivrosAtivos()).map(normalizarLivroDaApi).slice(0, 3)
 
       return {
         texto: respostasGerais.recomendacoes,
@@ -363,9 +347,7 @@ export const aiService = {
     // NENHUM RESULTADO
     // ==========================================
 
-    const livros = [...livros_mock]
-      .sort((a, b) => b.avaliacoes - a.avaliacoes)
-      .slice(0, 3)
+    const livros = (await listarLivrosAtivos()).map(normalizarLivroDaApi).slice(0, 3)
 
     return {
       texto: respostasGerais.nenhumResultado(mensagem),

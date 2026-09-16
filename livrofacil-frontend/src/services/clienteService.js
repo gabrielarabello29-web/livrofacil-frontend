@@ -1,17 +1,33 @@
 import { api } from './api'
 
 export const clienteService = {
+  login: async (dados) => api.post('/clientes/login', dados),
+  listarClientes: async () => api.get('/clientes'),
+  buscarClientePorId: async (id) => api.get(`/clientes/${id}`),
   buscarCliente: async (id) => api.get(`/clientes/${id}`),
-  atualizarCliente: async (id, data) => api.put(`/clientes/${id}`, data),
-  listarEnderecos: async (id) => api.get(`/clientes/${id}/enderecos`),
-  adicionarEndereco: async (id, data) => api.post(`/clientes/${id}/enderecos`, data),
-  atualizarEndereco: async (clienteId, endId, data) => api.put(`/clientes/${clienteId}/enderecos/${endId}`, data),
-  removerEndereco: async (clienteId, endId) => api.delete(`/clientes/${clienteId}/enderecos/${endId}`),
-  listarCartoes: async (id) => api.get(`/clientes/${id}/cartoes`),
-  adicionarCartao: async (id, data) => api.post(`/clientes/${id}/cartoes`, data),
-  removerCartao: async (clienteId, cartaoId) => api.delete(`/clientes/${clienteId}/cartoes/${cartaoId}`),
-  alterarSenha: async (id, data) => api.patch(`/clientes/${id}/senha`, data),
+  buscarClientesPorFiltro: async (filtros = {}) => {
+    const params = {}
 
-  // Inativar cliente (soft-delete / desativação)
-  inativarCliente: async (id) => api.patch(`/clientes/${id}/inativar`),
+    if (filtros.nome) params.nome = filtros.nome
+    if (filtros.email) params.email = filtros.email
+
+    const query = new URLSearchParams()
+    Object.entries(params).forEach(([key, value]) => query.append(key, value))
+
+    const queryString = query.toString()
+    return queryString ? api.get(`/clientes/buscar?${queryString}`) : api.get('/clientes')
+  },
+  buscarClientes: async (filtros = {}) => {
+    return clienteService.buscarClientesPorFiltro(filtros)
+  },
+  criarCliente: async (dados) => {
+    const { nome, email, cpf, telefone, dataNascimento, genero, senha, confirmarSenha, endereco } = dados
+    return api.post('/clientes', { nome, email, cpf, telefone, dataNascimento, genero, senha, confirmarSenha, endereco })
+  },
+  atualizarCliente: async (id, dados) => {
+    const { nome, email, cpf, telefone, dataNascimento, genero } = dados
+    return api.put(`/clientes/${id}`, { nome, email, cpf, telefone, dataNascimento, genero })
+  },
+  alterarSenha: async (clienteId, dados) => api.patch(`/clientes/${clienteId}/senha`, dados),
+  inativarCliente: async (id) => api.delete(`/clientes/${id}`),
 }

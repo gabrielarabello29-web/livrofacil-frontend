@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCarrinho } from '../context/CarrinhoContext'
@@ -18,7 +18,7 @@ export default function Header() {
 
   function handleLogout() {
     logout()
-    navigate('/')
+    navigate('/login', { replace: true })
     setUserMenuAberto(false)
   }
 
@@ -118,7 +118,7 @@ export default function Header() {
                       <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{usuario.nome}</p>
                       <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>{usuario.email}</p>
                     </div>
-                    {usuario.perfil === 'ADMIN' && (
+                    {String(usuario.perfil || '').toUpperCase() === 'ADMIN' && (
                       <Link to="/admin" onClick={() => setUserMenuAberto(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 14, color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>
                         Painel Admin
                       </Link>

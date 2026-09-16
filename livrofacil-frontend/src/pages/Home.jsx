@@ -1,9 +1,12 @@
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import LivroCard from '../components/LivroCard'
 import ChatBot from '../components/ChatBot'
-import { livros_mock } from '../services/livroService'
+import { listarLivrosAtivos, listarCategorias } from '../features/livros/api/livrosApi'
+import { normalizarLivroDaApi } from '../features/livros/utils/livroFormatters'
+import LivroCover from '../features/livros/components/LivroCover'
 
 const beneficios = [
   { icon: '🚚', titulo: 'Frete rápido', desc: 'Para todo o Brasil' },
@@ -12,16 +15,22 @@ const beneficios = [
   { icon: '🔄', titulo: 'Troca garantida', desc: 'Em até 7 dias' },
 ]
 
-const categorias_destaque = [
-  { nome: 'Ficção', emoji: '📖', cor: '#EDE9FE' },
-  { nome: 'Negócios', emoji: '💼', cor: '#DBEAFE' },
-  { nome: 'Desenvolvimento Pessoal', emoji: '🎯', cor: '#D1FAE5' },
-  { nome: 'Tecnologia', emoji: '💻', cor: '#FEF3C7' },
-]
-
 export default function Home() {
-  const maisVendidos = livros_mock.slice(0, 5)
-  const novidades = livros_mock.slice(5, 9)
+  const [livros, setLivros] = useState([])
+  const [categorias, setCategorias] = useState([])
+
+  useEffect(() => {
+    Promise.all([listarLivrosAtivos(), listarCategorias()]).then(([livrosResposta, categoriasResposta]) => {
+      setLivros(Array.isArray(livrosResposta) ? livrosResposta.map(normalizarLivroDaApi) : [])
+      setCategorias(Array.isArray(categoriasResposta) ? categoriasResposta : [])
+    }).catch(() => {
+      setLivros([])
+      setCategorias([])
+    })
+  }, [])
+
+  const maisVendidos = livros.slice(0, 5)
+  const novidades = livros.slice(5, 9)
 
   return (
     <div>
@@ -66,12 +75,12 @@ export default function Home() {
               <div style={{ position: 'relative', height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%)' }} />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, transform: 'rotate(-5deg)' }}>
-                  {livros_mock.slice(0, 4).map((l, i) => (
+                  {livros.slice(0, 4).map((l, i) => (
                     <Link key={l.id} to={`/livros/${l.id}`} style={{ textDecoration: 'none' }}>
                       <div style={{ width: 110, height: 155, borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', transform: i % 2 === 0 ? 'rotate(3deg)' : 'rotate(-2deg)', transition: 'transform 0.2s' }}
                         onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05) rotate(0)'}
                         onMouseLeave={e => e.currentTarget.style.transform = i % 2 === 0 ? 'rotate(3deg)' : 'rotate(-2deg)'}>
-                        <img src={l.capa} alt={l.titulo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <LivroCover src={l.imagemUrl} alt={`Capa de ${l.titulo}`} style={{ width: '100%', height: '100%' }} />
                       </div>
                     </Link>
                   ))}
@@ -122,12 +131,11 @@ export default function Home() {
               <Link to="/categorias" className="btn-secondary" style={{ padding: '8px 18px' }}>Ver todas</Link>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-              {categorias_destaque.map(c => (
+              {categorias.map(c => (
                 <Link key={c.nome} to={`/livros?categoria=${encodeURIComponent(c.nome)}`}
                   style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '20px 22px', background: c.cor, borderRadius: 12, textDecoration: 'none', transition: 'transform 0.15s, box-shadow 0.15s' }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.1)' }}
                   onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}>
-                  <span style={{ fontSize: 32 }}>{c.emoji}</span>
                   <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{c.nome}</span>
                 </Link>
               ))}

@@ -1,3 +1,4 @@
+import React from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -64,7 +65,7 @@ export default function AdminSidebar() {
       </nav>
 
       <div style={{ padding: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-        <button onClick={() => { logout(); navigate('/') }}
+        <button onClick={() => { logout(); navigate('/login', { replace: true }) }}
           style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#C4B5FD', transition: 'background 0.15s' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
           onMouseLeave={e => e.currentTarget.style.background = 'none'}>
