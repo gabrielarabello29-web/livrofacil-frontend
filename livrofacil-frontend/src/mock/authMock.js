@@ -24,3 +24,11 @@ export function cadastrar(dados) {
   const { senha: _, ...semSenha } = novo
   return { sucesso: true, usuario: semSenha }
 }
+
+// remover usuário do array mock
+export function excluirUsuario(id) {
+  const idx = usuarios.findIndex(u => Number(u.id) === Number(id))
+  if (idx === -1) return { sucesso: false, mensagem: 'Usuário não encontrado.' }
+  usuarios.splice(idx, 1)
+  return { sucesso: true }
+}
