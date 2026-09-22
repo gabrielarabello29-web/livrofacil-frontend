@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import AdminSidebar from '../../../components/AdminSidebar'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
 import { listarLivros, ativarLivro, inativarLivro, buscarEstoque } from '../api/livrosApi'
 import { formatarDinheiro, normalizarLivroDaApi } from '../utils/livroFormatters'
 import LivroCover from '../components/LivroCover'

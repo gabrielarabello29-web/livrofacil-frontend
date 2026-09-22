@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '@/features/auth/context/AuthContext'
 
 function aplicarMascaraTelefone(valor) {
   const apenasDigitos = (valor || '').replace(/\D/g, '').slice(0, 11)
@@ -46,8 +46,16 @@ function validarSenha(senha) {
 
 function validarDataNascimento(dataNascimento) {
   if (!dataNascimento) return 'Informe a data de nascimento.'
-  const hoje = new Date().toISOString().slice(0, 10)
-  return dataNascimento > hoje ? 'A data de nascimento não pode ser futura.' : ''
+  const hoje = new Date()
+  const data = new Date(`${dataNascimento}T00:00:00`)
+  const limite = new Date(hoje.getFullYear() - 18, hoje.getMonth(), hoje.getDate())
+  if (Number.isNaN(data.getTime()) || dataNascimento > hoje.toISOString().slice(0, 10)) return 'Informe uma data de nascimento válida.'
+  return data > limite ? 'Você precisa ter pelo menos 18 anos.' : ''
+}
+
+function dataMaximaNascimento() {
+  const hoje = new Date()
+  return `${hoje.getFullYear() - 18}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`
 }
 
 export default function Cadastro({ compact = false, onSuccess, onBackToLogin }) {
@@ -160,6 +168,7 @@ export default function Cadastro({ compact = false, onSuccess, onBackToLogin }) 
         return
       }
 
+      setErros(resultado.erros || {})
       setErro(resultado.mensagem)
     } finally {
       setCarregando(false)
@@ -184,7 +193,7 @@ export default function Cadastro({ compact = false, onSuccess, onBackToLogin }) 
           </div>
           <div>
             <label className="label">Data de nascimento</label>
-            <input className="input-field" type="date" value={form.dataNascimento} onChange={(e) => setCampo('dataNascimento', e.target.value)} max={new Date().toISOString().slice(0, 10)} required style={{ borderColor: erros.dataNascimento ? '#DC2626' : undefined }} />
+            <input className="input-field" type="date" value={form.dataNascimento} onChange={(e) => setCampo('dataNascimento', e.target.value)} max={dataMaximaNascimento()} required style={{ borderColor: erros.dataNascimento ? '#DC2626' : undefined }} />
             {erros.dataNascimento && <div style={{ marginTop: 6, color: '#DC2626', fontSize: 12 }}>{erros.dataNascimento}</div>}
           </div>
           <div>

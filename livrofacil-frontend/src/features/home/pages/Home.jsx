@@ -1,28 +1,39 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import Header from '../components/Header'
-import Footer from '../components/Footer'
-import LivroCard from '../components/LivroCard'
-import ChatBot from '../components/ChatBot'
-import { listarLivrosAtivos, listarCategorias } from '../features/livros/api/livrosApi'
-import { normalizarLivroDaApi } from '../features/livros/utils/livroFormatters'
-import LivroCover from '../features/livros/components/LivroCover'
+import Header from '@/shared/components/Header'
+import Footer from '@/shared/components/Footer'
+import LivroCard from '@/features/livros/components/LivroCard'
+import ChatBot from '@/features/ia/components/ChatBot'
+import { listarCatalogo } from '@/features/catalogo/api/catalogoApi'
+import { normalizarLivroDaApi } from '@/features/livros/utils/livroFormatters'
+import LivroCover from '@/features/livros/components/LivroCover'
 
 const beneficios = [
-  { icon: '🚚', titulo: 'Frete rápido', desc: 'Para todo o Brasil' },
-  { icon: '💳', titulo: 'Parcela em até 12x', desc: 'Sem juros no cartão' },
-  { icon: '💸', titulo: '5% no Pix', desc: 'Desconto garantido' },
-  { icon: '🔄', titulo: 'Troca garantida', desc: 'Em até 7 dias' },
+  { icon: 'truck', titulo: 'Entrega rápida', desc: 'Para todo o Brasil' },
+  { icon: 'tag', titulo: 'Preços especiais', desc: 'Ofertas imperdíveis' },
+  { icon: 'shield', titulo: 'Compra segura', desc: 'Seus dados protegidos' },
+  { icon: 'headset', titulo: 'Atendimento dedicado', desc: 'Sempre que precisar' },
 ]
+
+function BeneficioIcon({ tipo }) {
+  const paths = {
+    truck: <><path d="M3 6h11v9H3z" /><path d="M14 9h4l3 3v3h-7z" /><circle cx="7" cy="17" r="2" /><circle cx="17" cy="17" r="2" /></>,
+    tag: <><path d="M20 13 13 20 4 11V4h7z" /><circle cx="8" cy="8" r="1" /></>,
+    shield: <><path d="M12 3 20 6v5c0 5-3.4 8.2-8 10-4.6-1.8-8-5-8-10V6z" /><path d="m8.5 12 2.2 2.2 4.8-5" /></>,
+    headset: <><path d="M4 13a8 8 0 0 1 16 0" /><path d="M4 13v4h3v-4zM17 13v4h3v-4z" /><path d="M20 17c0 2-2 3-4 3h-1" /></>,
+  }
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[tipo]}</svg>
+}
 
 export default function Home() {
   const [livros, setLivros] = useState([])
   const [categorias, setCategorias] = useState([])
 
   useEffect(() => {
-    Promise.all([listarLivrosAtivos(), listarCategorias()]).then(([livrosResposta, categoriasResposta]) => {
+    listarCatalogo().then((livrosResposta) => {
       setLivros(Array.isArray(livrosResposta) ? livrosResposta.map(normalizarLivroDaApi) : [])
-      setCategorias(Array.isArray(categoriasResposta) ? categoriasResposta : [])
+      const nomes = [...new Set((Array.isArray(livrosResposta) ? livrosResposta : []).flatMap((livro) => livro.categoriaNomes || []))]
+      setCategorias(nomes.map((nome) => ({ id: nome, nome })))
     }).catch(() => {
       setLivros([])
       setCategorias([])
@@ -31,82 +42,85 @@ export default function Home() {
 
   const maisVendidos = livros.slice(0, 5)
   const novidades = livros.slice(5, 9)
+  const livrosHero = [
+    livros.find((livro) => livro.titulo?.toLocaleLowerCase('pt-BR').includes('1984')),
+    livros.find((livro) => livro.titulo?.toLocaleLowerCase('pt-BR').includes('hobbit')),
+    livros.find((livro) => livro.titulo?.toLocaleLowerCase('pt-BR').includes('harry potter')),
+  ].filter(Boolean)
 
   return (
     <div>
       <Header />
       <main>
         {/* Hero */}
-        <section style={{ background: 'linear-gradient(135deg, #FAF8FF 0%, #F0EBFF 100%)', paddingTop: 64, paddingBottom: 80, overflow: 'hidden' }}>
+        <section className="home-hero">
           <div className="page-container">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }}>
-              <div style={{ animation: 'fadeIn 0.5s ease' }}>
-                <span style={{ display: 'inline-block', background: 'var(--primary-light)', color: 'var(--primary)', fontSize: 13, fontWeight: 600, padding: '4px 14px', borderRadius: 20, marginBottom: 20 }}>
-                  📚 Sua livraria digital favorita
-                </span>
-                <h1 style={{ fontSize: 46, fontWeight: 900, lineHeight: 1.15, margin: '0 0 20px', color: 'var(--text)' }}>
-                  Encontre sua
+            <div className="home-hero-layout">
+              <div className="home-hero-copy">
+                <span className="home-hero-kicker">📖 Mais que livros</span>
+                <h1>
+                  Livros que
                   <br />
-                  <span style={{ color: 'var(--primary)' }}>próxima grande</span>
+                  <span>te acompanham</span>
                   <br />
-                  história
+                  em cada fase.
                 </h1>
-                <p style={{ fontSize: 17, color: 'var(--text-muted)', margin: '0 0 36px', lineHeight: 1.7, maxWidth: 440 }}>
-                  Explore milhares de títulos, dos best-sellers aos clássicos atemporais. Entrega rápida, preços especiais e troca garantida.
+                <p>
+                  Encontre best-sellers, clássicos e novidades em um só lugar. Com entrega rápida, preços justos e uma experiência feita para quem ama ler.
                 </p>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <Link to="/livros" className="btn-primary" style={{ padding: '14px 28px', fontSize: 15 }}>
+                <div className="home-hero-actions">
+                  <Link to="/livros" className="btn-primary">
                     Explorar livros
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                   </Link>
-                  <Link to="/categorias" className="btn-secondary" style={{ padding: '14px 28px', fontSize: 15 }}>Ver categorias</Link>
+                  <Link to="/categorias" className="btn-secondary">Ver categorias</Link>
                 </div>
-                <div style={{ display: 'flex', gap: 32, marginTop: 40 }}>
-                  {[['12k+', 'Livros'], ['50k+', 'Clientes'], ['4.9', 'Avaliação']].map(([n, l]) => (
-                    <div key={l}>
-                      <p style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--primary)' }}>{n}</p>
-                      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{l}</p>
-                    </div>
-                  ))}
+                <div className="home-hero-stats">
+                  <div><strong>12k+</strong><span>Livros</span></div>
+                  <div><strong>50k+</strong><span>Clientes</span></div>
+                  <div><strong>4.9</strong><span>Avaliação média</span></div>
                 </div>
               </div>
 
-              {/* Book composition */}
-              <div style={{ position: 'relative', height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%)' }} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, transform: 'rotate(-5deg)' }}>
-                  {livros.slice(0, 4).map((l, i) => (
-                    <Link key={l.id} to={`/livros/${l.id}`} style={{ textDecoration: 'none' }}>
-                      <div style={{ width: 110, height: 155, borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', transform: i % 2 === 0 ? 'rotate(3deg)' : 'rotate(-2deg)', transition: 'transform 0.2s' }}
-                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05) rotate(0)'}
-                        onMouseLeave={e => e.currentTarget.style.transform = i % 2 === 0 ? 'rotate(3deg)' : 'rotate(-2deg)'}>
-                        <LivroCover src={l.imagemUrl} alt={`Capa de ${l.titulo}`} style={{ width: '100%', height: '100%' }} />
-                      </div>
+              <div className="home-hero-art" aria-label="Livros em destaque">
+                <div className="home-hero-glow" />
+                <div className="home-hero-foliage" aria-hidden="true">
+                  <i className="home-hero-leaf home-hero-leaf-1" />
+                  <i className="home-hero-leaf home-hero-leaf-2" />
+                  <i className="home-hero-leaf home-hero-leaf-3" />
+                  <i className="home-hero-leaf home-hero-leaf-4" />
+                  <i className="home-hero-leaf home-hero-leaf-5" />
+                </div>
+                <div className="home-hero-vase" aria-hidden="true" />
+                <div className="home-hero-books">
+                  {livrosHero.map((l, i) => (
+                    <Link key={l.id} to={`/livros/${l.id}`} className={`home-hero-book home-hero-book-${i + 1}`}>
+                      <LivroCover src={l.imagemUrl} alt={`Capa de ${l.titulo}`} />
                     </Link>
                   ))}
                 </div>
+                <div className="home-hero-pedestal" />
               </div>
             </div>
           </div>
         </section>
 
         {/* Benefícios */}
-        <section style={{ padding: '32px 0', borderBottom: '1px solid #F3F4F6', background: '#fff' }}>
+        <section className="home-benefits">
           <div className="page-container">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
+            <div className="home-benefits-grid">
               {beneficios.map(b => (
-                <div key={b.titulo} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontSize: 28 }}>{b.icon}</span>
+                <div key={b.titulo} className="home-benefit">
+                  <span><BeneficioIcon tipo={b.icon} /></span>
                   <div>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{b.titulo}</p>
-                    <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{b.desc}</p>
+                    <p>{b.titulo}</p>
+                    <small>{b.desc}</small>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         </section>
-
         {/* Mais vendidos */}
         <section style={{ padding: '64px 0' }}>
           <div className="page-container">
@@ -117,7 +131,7 @@ export default function Home() {
               </div>
               <Link to="/livros" className="btn-secondary" style={{ padding: '8px 18px' }}>Ver todos</Link>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
+            <div className="home-books-grid">
               {maisVendidos.map(l => <LivroCard key={l.id} livro={l} />)}
             </div>
           </div>
@@ -130,7 +144,7 @@ export default function Home() {
               <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: 'var(--text)' }}>📂 Explore por categoria</h2>
               <Link to="/categorias" className="btn-secondary" style={{ padding: '8px 18px' }}>Ver todas</Link>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <div className="home-books-grid">
               {categorias.map(c => (
                 <Link key={c.nome} to={`/livros?categoria=${encodeURIComponent(c.nome)}`}
                   style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '20px 22px', background: c.cor, borderRadius: 12, textDecoration: 'none', transition: 'transform 0.15s, box-shadow 0.15s' }}

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
-import ClienteSidebar from '../../components/ClienteSidebar'
-import { clienteService } from '../../services/clienteService'
-import { enderecoService } from '../../services/enderecoService'
-import { formaPagamentoService } from '../../services/formaPagamentoService'
+import Header from '@/shared/components/Header'
+import Footer from '@/shared/components/Footer'
+import ClienteSidebar from '@/shared/layouts/cliente/ClienteSidebar'
+import { clienteService } from '@/features/cliente/api/clienteService'
+import { enderecoService } from '@/features/cliente/api/enderecoService'
+import { formaPagamentoService } from '@/features/cliente/api/formaPagamentoService'
 
 const bandeirasCartao = {
   VISA: 'Visa',
@@ -16,11 +16,8 @@ const bandeirasCartao = {
 }
 
 const bandeirasCartaoValidas = Object.keys(bandeirasCartao)
-const tiposCartao = {
-  CREDITO: 'Cartão de crédito',
-  DEBITO: 'Cartão de débito',
-}
-const tiposCartaoValidos = Object.keys(tiposCartao)
+const tiposCartao = { CREDITO: 'Cartão de crédito' }
+const tiposCartaoValidos = ['CREDITO']
 function validarNumeroEndereco(numero) {
   const valor = String(numero || '').trim()
   if (!valor) return 'Informe o número.'
@@ -141,6 +138,23 @@ function obterErrosBackend(error) {
   return mapa
 }
 
+function ordenarFormasPagamento(registros) {
+  return registros
+    .map((forma, indice) => ({ forma, indice }))
+    .sort((a, b) => {
+      const dataA = a.forma.criadoEm || a.forma.createdAt || a.forma.dataCriacao
+      const dataB = b.forma.criadoEm || b.forma.createdAt || b.forma.dataCriacao
+      if (dataA && dataB) return new Date(dataA).getTime() - new Date(dataB).getTime()
+      if (dataA) return -1
+      if (dataB) return 1
+      const idA = Number(a.forma.id)
+      const idB = Number(b.forma.id)
+      if (Number.isFinite(idA) && Number.isFinite(idB)) return idA - idB
+      return a.indice - b.indice
+    })
+    .map(({ forma }) => forma)
+}
+
 const vazioEndereco = {
   tipoEndereco: '',
   logradouro: '',
@@ -225,12 +239,14 @@ export default function ClienteDetalhes() {
   const [cliente, setCliente] = useState(null)
   const [enderecos, setEnderecos] = useState([])
   const [formasPagamento, setFormasPagamento] = useState([])
+  const [bandeirasDisponiveis, setBandeirasDisponiveis] = useState([])
   const [loadingCliente, setLoadingCliente] = useState(true)
   const [loadingEnderecos, setLoadingEnderecos] = useState(true)
   const [loadingPagamentos, setLoadingPagamentos] = useState(true)
   const [erroCliente, setErroCliente] = useState('')
   const [erroEnderecos, setErroEnderecos] = useState('')
   const [erroPagamentos, setErroPagamentos] = useState('')
+  const [sucessoPagamentos, setSucessoPagamentos] = useState('')
   const [editandoCliente, setEditandoCliente] = useState(false)
   const [clienteForm, setClienteForm] = useState({ nome: '', email: '', cpf: '', telefone: '', dataNascimento: '', genero: '' })
   const [clienteErros, setClienteErros] = useState({})
@@ -247,7 +263,7 @@ export default function ClienteDetalhes() {
   const [salvandoForma, setSalvandoForma] = useState(false)
   const [formaAcaoId, setFormaAcaoId] = useState(null)
 
-  const clienteId = Number(id)
+  const clienteId = String(id || '').trim()
 
   const clienteLabel = useMemo(() => cliente ? cliente.nome : 'Cliente', [cliente])
 
@@ -256,7 +272,7 @@ export default function ClienteDetalhes() {
     setErroCliente('')
     try {
       const dados = await clienteService.buscarClientePorId(clienteId)
-      if (!dados?.id || Number(dados.id) !== clienteId) {
+      if (!dados?.id || String(dados.id) !== clienteId) {
         throw new Error('O cliente retornado não corresponde ao cliente selecionado.')
       }
       setCliente(dados)
@@ -281,11 +297,11 @@ export default function ClienteDetalhes() {
     try {
       const dados = await enderecoService.listarEnderecos(clienteId)
       const registros = Array.isArray(dados) ? dados : []
-      const invalidos = registros.filter((item) => item.clienteId != null && Number(item.clienteId) !== clienteId)
+      const invalidos = registros.filter((item) => item.clienteId != null && String(item.clienteId) !== clienteId)
       if (invalidos.length > 0) {
         setErroEnderecos('Este registro não pertence ao cliente selecionado.')
       }
-      setEnderecos(registros.filter((item) => item.clienteId == null || Number(item.clienteId) === clienteId))
+      setEnderecos(registros.filter((item) => item.clienteId == null || String(item.clienteId) === clienteId))
     } catch (error) {
       setErroEnderecos(error?.message || 'Não foi possível carregar os endereços.')
       setEnderecos([])
@@ -300,11 +316,11 @@ export default function ClienteDetalhes() {
     try {
       const dados = await formaPagamentoService.listarFormasPagamento(clienteId)
       const registros = Array.isArray(dados) ? dados : []
-      const invalidos = registros.filter((item) => item.clienteId != null && Number(item.clienteId) !== clienteId)
+      const invalidos = registros.filter((item) => item.clienteId != null && String(item.clienteId) !== clienteId)
       if (invalidos.length > 0) {
         setErroPagamentos('Este registro não pertence ao cliente selecionado.')
       }
-      setFormasPagamento(registros.filter((item) => item.clienteId == null || Number(item.clienteId) === clienteId))
+      setFormasPagamento(ordenarFormasPagamento(registros.filter((item) => item.clienteId == null || String(item.clienteId) === clienteId)))
     } catch (error) {
       setErroPagamentos(error?.message || 'Não foi possível carregar as formas de pagamento.')
       setFormasPagamento([])
@@ -313,11 +329,22 @@ export default function ClienteDetalhes() {
     }
   }
 
+  async function carregarBandeiras() {
+    try {
+      const dados = await formaPagamentoService.listarBandeiras()
+      const lista = Array.isArray(dados?.data) ? dados.data : Array.isArray(dados) ? dados : []
+      setBandeirasDisponiveis(lista.filter((bandeira) => bandeira.disponivel).map((bandeira) => bandeira.nome))
+    } catch (error) {
+      setErroPagamentos(error?.message || 'Não foi possível carregar as bandeiras disponíveis.')
+    }
+  }
+
   useEffect(() => {
-    if (!Number.isNaN(clienteId)) {
+    if (clienteId) {
       carregarCliente()
       carregarEnderecos()
       carregarFormasPagamento()
+      carregarBandeiras()
     }
   }, [clienteId])
 
@@ -376,7 +403,7 @@ export default function ClienteDetalhes() {
   }
 
   function abrirEditarEndereco(endereco) {
-    if (endereco.clienteId != null && Number(endereco.clienteId) !== clienteId) {
+    if (endereco.clienteId != null && String(endereco.clienteId) !== clienteId) {
       setErroEnderecos('Este registro não pertence ao cliente selecionado.')
       return
     }
@@ -442,7 +469,7 @@ export default function ClienteDetalhes() {
   async function excluirEndereco(enderecoId) {
     if (!window.confirm('Deseja excluir este endereço?')) return
     const endereco = enderecos.find((item) => item.id === enderecoId)
-    if (endereco?.clienteId != null && Number(endereco.clienteId) !== clienteId) {
+    if (endereco?.clienteId != null && String(endereco.clienteId) !== clienteId) {
       setErroEnderecos('Este registro não pertence ao cliente selecionado.')
       return
     }
@@ -457,7 +484,7 @@ export default function ClienteDetalhes() {
   async function definirEnderecoPrincipal(enderecoId) {
     const atual = enderecos.find((endereco) => endereco.id === enderecoId)
     if (!atual) return
-    if (atual.clienteId != null && Number(atual.clienteId) !== clienteId) {
+    if (atual.clienteId != null && String(atual.clienteId) !== clienteId) {
       setErroEnderecos('Este registro não pertence ao cliente selecionado.')
       return
     }
@@ -487,7 +514,7 @@ export default function ClienteDetalhes() {
   }
 
   function abrirEditarFormaPagamento(formaPagamento) {
-    if (formaPagamento.clienteId != null && Number(formaPagamento.clienteId) !== clienteId) {
+    if (formaPagamento.clienteId != null && String(formaPagamento.clienteId) !== clienteId) {
       setErroPagamentos('Este registro não pertence ao cliente selecionado.')
       return
     }
@@ -498,7 +525,7 @@ export default function ClienteDetalhes() {
       numeroCartao: '',
       validade: formaPagamento.validade || '',
       bandeira: formaPagamento.bandeira || 'VISA',
-      tipoCartao: formaPagamento.tipoCartao || 'CREDITO',
+      tipoCartao: 'CREDITO',
       preferencial: Boolean(formaPagamento.preferencial),
     })
     setFormaErros({})
@@ -513,11 +540,14 @@ export default function ClienteDetalhes() {
       numeroCartao: String(formaForm.numeroCartao || '').replace(/\D/g, ''),
       validade: String(formaForm.validade || '').trim(),
       bandeira: String(formaForm.bandeira || '').trim(),
-      tipoCartao: String(formaForm.tipoCartao || '').trim(),
-      preferencial: Boolean(formaForm.preferencial),
+      tipoCartao: 'CREDITO',
+      preferencial: formaEditandoId
+        ? Boolean(formasPagamento.find((forma) => forma.id === formaEditandoId)?.preferencial)
+        : Boolean(formaForm.preferencial),
     }
 
     const erros = validarFormaPagamentoForm(payload)
+    if (payload.bandeira && !bandeirasDisponiveis.includes(payload.bandeira)) erros.bandeira = 'Esta bandeira não está disponível para cadastro.'
     setFormaErros(erros)
     if (Object.keys(erros).length > 0) return
 
@@ -536,6 +566,9 @@ export default function ClienteDetalhes() {
       setFormaErros({})
     } catch (error) {
       const backendErros = obterErrosBackend(error)
+      const mensagemBackend = error?.message || error?.mensagem || ''
+      if (/bandeira/i.test(mensagemBackend)) backendErros.bandeira = 'A bandeira deste cartão não está disponível para pagamento.'
+      if (/tipo/i.test(mensagemBackend)) backendErros.tipoCartao = 'Somente cartões de crédito podem ser usados no pagamento.'
       const mensagemGeral = Object.keys(backendErros).length === 0 ? (error?.message || 'Não foi possível salvar a forma de pagamento.') : ''
       setFormaErros({ ...backendErros, geral: mensagemGeral })
     } finally {
@@ -544,16 +577,20 @@ export default function ClienteDetalhes() {
   }
 
   async function inativarFormaPagamento(formaPagamentoId) {
+    if (formaAcaoId !== null) return
     if (!window.confirm('Deseja inativar esta forma de pagamento?')) return
     const forma = formasPagamento.find((item) => item.id === formaPagamentoId)
-    if (forma?.clienteId != null && Number(forma.clienteId) !== clienteId) {
+    if (forma?.clienteId != null && String(forma.clienteId) !== clienteId) {
       setErroPagamentos('Este registro não pertence ao cliente selecionado.')
       return
     }
     setFormaAcaoId(formaPagamentoId)
+    setErroPagamentos('')
+    setSucessoPagamentos('')
     try {
       await formaPagamentoService.inativarFormaPagamento(clienteId, formaPagamentoId)
-      await carregarFormasPagamento()
+      setFormasPagamento((atuais) => atuais.map((forma) => forma.id === formaPagamentoId ? { ...forma, ativo: false, preferencial: false } : forma))
+      setSucessoPagamentos('Cartão inativado com sucesso.')
     } catch (error) {
       setErroPagamentos(error?.message || 'Não foi possível inativar a forma de pagamento.')
     } finally {
@@ -561,23 +598,63 @@ export default function ClienteDetalhes() {
     }
   }
 
-  async function definirFormaPreferencial(formaPagamentoId) {
-    const atual = formasPagamento.find((forma) => forma.id === formaPagamentoId)
-    if (!atual) return
-    if (atual.clienteId != null && Number(atual.clienteId) !== clienteId) {
+  async function excluirFormaPagamento(formaPagamentoId) {
+    if (formaAcaoId !== null) return
+    const forma = formasPagamento.find((item) => item.id === formaPagamentoId)
+    if (!forma || forma.ativo === true) return
+    if (forma.clienteId != null && String(forma.clienteId) !== clienteId) {
       setErroPagamentos('Este registro não pertence ao cliente selecionado.')
       return
     }
-    abrirEditarFormaPagamento(atual)
-    setFormaForm((formulario) => ({ ...formulario, preferencial: true }))
-    setFormaErros({ numeroCartao: 'Informe o número completo do cartão para atualizar.' })
+    if (!window.confirm('Deseja excluir definitivamente este cartão?')) return
+    setFormaAcaoId(formaPagamentoId)
+    setErroPagamentos('')
+    setSucessoPagamentos('')
+    try {
+      await formaPagamentoService.excluirFormaPagamento(clienteId, formaPagamentoId)
+      setFormasPagamento((atuais) => atuais.filter((item) => item.id !== formaPagamentoId))
+      setSucessoPagamentos('Cartão excluído com sucesso.')
+    } catch (error) {
+      setErroPagamentos(error?.status === 404 ? 'A exclusão definitiva deste cartão ainda não está disponível no backend.' : error?.message || 'Não foi possível excluir o cartão.')
+    } finally {
+      setFormaAcaoId(null)
+    }
+  }
+
+  async function definirFormaPreferencial(formaPagamentoId) {
+    if (formaAcaoId !== null) return
+    const atual = formasPagamento.find((forma) => forma.id === formaPagamentoId)
+    if (!atual) return
+    if (atual.clienteId != null && String(atual.clienteId) !== clienteId) {
+      setErroPagamentos('Este registro não pertence ao cliente selecionado.')
+      return
+    }
+    if (atual.ativo !== true) return
+    setFormaAcaoId(formaPagamentoId)
+    setErroPagamentos('')
+    setSucessoPagamentos('')
+    try {
+      const atualizado = await formaPagamentoService.marcarPreferencial(clienteId, formaPagamentoId)
+      const idAtualizado = atualizado?.id ?? formaPagamentoId
+      setFormasPagamento((atuais) => atuais.map((forma) => ({ ...forma, ...(forma.id === idAtualizado ? atualizado : {}), preferencial: forma.id === idAtualizado })))
+      setSucessoPagamentos('Cartão preferencial atualizado com sucesso.')
+    } catch (error) {
+      setErroPagamentos(error?.status === 409 ? (error?.message || 'Somente cartões ativos podem ser preferenciais.') : error?.message || 'Não foi possível definir o cartão preferencial.')
+    } finally {
+      setFormaAcaoId(null)
+    }
   }
 
   async function reativarFormaPagamento(formaPagamentoId) {
+    if (formaAcaoId !== null) return
     const forma = formasPagamento.find((item) => item.id === formaPagamentoId)
     if (!forma) return
-    if (forma.clienteId != null && Number(forma.clienteId) !== clienteId) {
+    if (forma.clienteId != null && String(forma.clienteId) !== clienteId) {
       setErroPagamentos('Este registro não pertence ao cliente selecionado.')
+      return
+    }
+    if (!bandeirasDisponiveis.includes(forma.bandeira)) {
+      setErroPagamentos('A bandeira deste cartão não está disponível para pagamento.')
       return
     }
     setFormaAcaoId(formaPagamentoId)
@@ -586,25 +663,6 @@ export default function ClienteDetalhes() {
       await carregarFormasPagamento()
     } catch (error) {
       setErroPagamentos(error?.status === 404 ? 'Registro não encontrado.' : error?.message || 'Não foi possível reativar o cartão.')
-    } finally {
-      setFormaAcaoId(null)
-    }
-  }
-
-  async function excluirFormaPagamento(formaPagamentoId) {
-    if (!window.confirm('Deseja excluir definitivamente este cartão?')) return
-    const forma = formasPagamento.find((item) => item.id === formaPagamentoId)
-    if (!forma) return
-    if (forma.clienteId != null && Number(forma.clienteId) !== clienteId) {
-      setErroPagamentos('Este registro não pertence ao cliente selecionado.')
-      return
-    }
-    setFormaAcaoId(formaPagamentoId)
-    try {
-      await formaPagamentoService.excluirFormaPagamento(clienteId, formaPagamentoId)
-      await carregarFormasPagamento()
-    } catch (error) {
-      setErroPagamentos(error?.status === 404 ? 'Registro não encontrado.' : error?.message || 'Não foi possível excluir o cartão.')
     } finally {
       setFormaAcaoId(null)
     }
@@ -792,7 +850,7 @@ export default function ClienteDetalhes() {
             {mostrarCartoes && <section className="card" style={{ padding: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 12, flexWrap: 'wrap' }}>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Formas de pagamento</h2>
-                <button className="btn-primary" onClick={abrirNovaFormaPagamento}>+ Nova forma</button>
+                <button className="btn-primary" onClick={abrirNovaFormaPagamento} disabled={!bandeirasDisponiveis.length}>+ Novo cartão de crédito</button>
               </div>
 
               {formaFormAberto ? (
@@ -815,22 +873,21 @@ export default function ClienteDetalhes() {
                     </div>
                     <div>
                       <label className="label">Bandeira</label>
-                      <select className="input-field" value={formaForm.bandeira} onChange={(event) => setFormaForm((atual) => ({ ...atual, bandeira: event.target.value }))} style={{ borderColor: formaErros.bandeira ? '#DC2626' : undefined }}>
-                        {bandeirasCartaoValidas.map((bandeira) => <option key={bandeira} value={bandeira}>{bandeirasCartao[bandeira]}</option>)}
+                      <select className="input-field" value={formaForm.bandeira} onChange={(event) => setFormaForm((atual) => ({ ...atual, bandeira: event.target.value }))} disabled={!bandeirasDisponiveis.length} style={{ borderColor: formaErros.bandeira ? '#DC2626' : undefined }}>
+                        {bandeirasDisponiveis.length === 0 ? <option value="">Nenhuma bandeira disponível</option> : bandeirasDisponiveis.map((bandeira) => <option key={bandeira} value={bandeira}>{bandeirasCartao[bandeira] || bandeira}</option>)}
                       </select>
+                      {!bandeirasDisponiveis.length && <div style={{ color: '#991B1B', fontSize: 12, marginTop: 4 }}>Nenhuma bandeira disponível para cadastro.</div>}
                       {formaErros.bandeira && <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4 }}>{formaErros.bandeira}</div>}
                     </div>
                     <div>
                       <label className="label">Tipo do cartão</label>
-                      <select className="input-field" value={formaForm.tipoCartao} onChange={(event) => setFormaForm((atual) => ({ ...atual, tipoCartao: event.target.value }))} style={{ borderColor: formaErros.tipoCartao ? '#DC2626' : undefined }}>
-                        {tiposCartaoValidos.map((tipo) => <option key={tipo} value={tipo}>{tiposCartao[tipo]}</option>)}
-                      </select>
+                      <input className="input-field" value="Cartão de crédito" readOnly />
                       {formaErros.tipoCartao && <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4 }}>{formaErros.tipoCartao}</div>}
                     </div>
                   </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input type="checkbox" checked={formaForm.preferencial} onChange={(event) => setFormaForm((atual) => ({ ...atual, preferencial: event.target.checked }))} />
-                    Definir como preferencial
+                    {!formaEditandoId && <><input type="checkbox" checked={formaForm.preferencial} onChange={(event) => setFormaForm((atual) => ({ ...atual, preferencial: event.target.checked }))} />
+                    Definir como preferencial</>}
                   </label>
                   {formaErros.geral && <div style={{ color: '#991B1B', background: '#FEF2F2', padding: '10px 12px', borderRadius: 8 }}>{formaErros.geral}</div>}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -840,7 +897,9 @@ export default function ClienteDetalhes() {
                 </form>
               ) : null}
 
-              {loadingPagamentos ? <div>Carregando formas de pagamento...</div> : erroPagamentos ? <div style={{ color: '#991B1B' }}>{erroPagamentos}</div> : formasPagamento.length === 0 ? <div>Nenhuma forma de pagamento cadastrada.</div> : (
+              {erroPagamentos && <div role="alert" style={{ color: '#991B1B' }}>{erroPagamentos}</div>}
+              {sucessoPagamentos && <div role="status" style={{ color: '#166534' }}>{sucessoPagamentos}</div>}
+              {loadingPagamentos ? <div>Carregando formas de pagamento...</div> : formasPagamento.length === 0 ? <div>Nenhuma forma de pagamento cadastrada.</div> : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
                   {formasPagamento.map((forma) => (
                     <div key={forma.id} className="card" style={{ padding: 18, borderColor: forma.preferencial ? 'var(--primary)' : '#E5E7EB', borderWidth: forma.preferencial ? 2 : 1 }}>
@@ -851,13 +910,12 @@ export default function ClienteDetalhes() {
                       <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
                         <div>{forma.nomeTitular || 'Titular não informado'}</div>
                         <div>**** {forma.ultimosDigitos || '----'} · {tiposCartao[forma.tipoCartao] || forma.tipoCartao || 'Tipo não informado'} · Validade {forma.validade || '—'}</div>
-                        <div>Status: {forma.ativo ? 'Ativa' : 'Inativa'}</div>
+                        <div>Status: {forma.ativo === true ? 'Ativa' : 'Inativo'}</div>
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                        <button className="btn-secondary" onClick={() => abrirEditarFormaPagamento(forma)}>Editar</button>
-                        {forma.ativo && !forma.preferencial && <button className="btn-ghost" onClick={() => definirFormaPreferencial(forma.id)}>Preferencial</button>}
-                        {forma.ativo ? <button className="btn-ghost" disabled={formaAcaoId === forma.id} onClick={() => inativarFormaPagamento(forma.id)}>{formaAcaoId === forma.id ? 'Desativando...' : 'Desativar'}</button> : <button className="btn-secondary" disabled={formaAcaoId === forma.id} onClick={() => reativarFormaPagamento(forma.id)}>{formaAcaoId === forma.id ? 'Ativando...' : 'Ativar'}</button>}
-                        <button className="btn-danger" disabled={formaAcaoId === forma.id} onClick={() => excluirFormaPagamento(forma.id)}>{formaAcaoId === forma.id ? 'Excluindo...' : 'Excluir'}</button>
+                        <button className="btn-secondary" disabled={!forma.ativo} onClick={() => abrirEditarFormaPagamento(forma)}>Editar</button>
+                        {forma.ativo === true && !forma.preferencial && <button className="btn-ghost" disabled={formaAcaoId === forma.id} onClick={() => definirFormaPreferencial(forma.id)}>{formaAcaoId === forma.id ? 'Atualizando...' : 'Usar como preferencial'}</button>}
+                        {forma.ativo === true ? <button className="btn-ghost" disabled={formaAcaoId === forma.id} onClick={() => inativarFormaPagamento(forma.id)}>{formaAcaoId === forma.id ? 'Desativando...' : 'Desativar'}</button> : <><button className="btn-secondary" disabled={formaAcaoId === forma.id} onClick={() => reativarFormaPagamento(forma.id)}>{formaAcaoId === forma.id ? 'Ativando...' : 'Ativar'}</button><button className="btn-danger" disabled={formaAcaoId === forma.id} onClick={() => excluirFormaPagamento(forma.id)}>{formaAcaoId === forma.id ? 'Excluindo...' : 'Excluir'}</button></>}
                       </div>
                     </div>
                   ))}

@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api } from '@/shared/api/api'
 
 export const analiseService = {
   buscarAnaliseVendas: async (params) => api.get('/analises/vendas?' + new URLSearchParams(params).toString()),

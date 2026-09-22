@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import AdminSidebar from '../../components/AdminSidebar'
-import Modal from '../../components/Modal'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
+import Modal from '@/shared/components/Modal'
 
 const trocas_inicial = [
   { id: 'TRK-001', pedido: '#1001', cliente: 'Ana Silva', produto: 'Hábitos Atômicos', data: '20/12/2024', status: 'Em troca', motivo: 'Produto danificado' },

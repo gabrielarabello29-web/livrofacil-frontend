@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import Header from '../../../components/Header'
-import Footer from '../../../components/Footer'
-import ChatBot from '../../../components/ChatBot'
-import LivroCover from '../components/LivroCover'
-import { formatarDinheiro } from '../utils/livroFormatters'
-import { listarLivrosAtivos, buscarLivrosPorTitulo, buscarEstoque } from '../api/livrosApi'
+import Header from '@/shared/components/Header'
+import Footer from '@/shared/components/Footer'
+import ChatBot from '@/features/ia/components/ChatBot'
+import LivroCard from '@/features/livros/components/LivroCard'
+import { listarCatalogo, buscarCatalogoPorTitulo } from '../../catalogo/api/catalogoApi'
 import { normalizarLivroDaApi } from '../utils/livroFormatters'
 
 export default function LivrosPage() {
@@ -29,17 +28,13 @@ export default function LivrosPage() {
 
     try {
       const resposta = busca
-        ? await buscarLivrosPorTitulo(busca)
-        : await listarLivrosAtivos()
+        ? await buscarCatalogoPorTitulo(busca)
+        : await listarCatalogo()
 
       const itens = Array.isArray(resposta) ? resposta : []
       const ativos = itens.map(normalizarLivroDaApi).filter((livro) => livro.ativo)
-      const comEstoque = await Promise.all(ativos.map(async (livro) => {
-        if (livro.estoque !== null || !livro.id) return livro
-        try { return { ...livro, estoque: await buscarEstoque(livro.id) } } catch { return livro }
-      }))
       if (requisicaoAtual !== requisicaoRef.current) return
-      setLivros(comEstoque)
+      setLivros(ativos)
     } catch (err) {
       if (requisicaoAtual !== requisicaoRef.current) return
       setLivros([])
@@ -157,34 +152,9 @@ export default function LivrosPage() {
           )}
 
           {!loading && !error && livrosFiltrados.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18 }}>
+            <div className="catalog-books-grid">
               {livrosDaPagina.map((livro) => (
-                <div key={livro.id} className="card" style={{ overflow: 'hidden', padding: 0 }}>
-                  <Link to={`/livros/${livro.id}`} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', height: '100%' }}>
-                    <div style={{ aspectRatio: '3 / 4', background: '#F5F3FF', overflow: 'hidden' }}>
-                      <LivroCover src={livro.imagemUrl} alt={`Capa de ${livro.titulo}`} style={{ width: '100%', height: '100%' }} />
-                    </div>
-                    <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-                      <span className="badge badge-purple">{livro.grupoPrecificacaoNome || 'Livro'}</span>
-                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{livro.titulo}</h3>
-                      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{livro.autorNome || 'Autor não informado'}</p>
-                      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{livro.editoraNome || 'Editora não informada'}</p>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                        <strong style={{ color: 'var(--primary)', fontSize: 18 }}>{formatarDinheiro(livro.valorVenda)}</strong>
-                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Ed. {livro.edicao}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)' }}>
-                        <span>{livro.numeroPaginas || 0} páginas</span>
-                        <span>{livro.estoque ? `${livro.estoque.quantidadeDisponivel} disponíveis` : 'Estoque não cadastrado'}</span>
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                        {(livro.categoriaNomes || []).slice(0, 3).map((categoriaNome) => (
-                          <span key={categoriaNome} className="badge badge-gray">{categoriaNome}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </Link>
-                </div>
+                <LivroCard key={livro.id} livro={livro} />
               ))}
             </div>
           )}

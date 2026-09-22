@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import AdminSidebar from '../../../components/AdminSidebar'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
 import LivroForm from '../components/LivroForm'
 import {
   buscarLivroPorId,
@@ -13,6 +13,7 @@ import {
 } from '../api/livrosApi'
 import { getInitialLivroForm, normalizarLivroDaApi } from '../utils/livroFormatters'
 import LivroEstoque from '../components/LivroEstoque'
+import { mensagemDeApi, normalizarErrosDeCampo } from '@/shared/api/errorUtils'
 
 export default function LivroFormPage() {
   const navigate = useNavigate()
@@ -71,7 +72,7 @@ export default function LivroFormPage() {
         const response = await buscarLivroPorId(id)
         setInitialValues(getInitialLivroForm(normalizarLivroDaApi(response)))
       } catch (err) {
-        setError(err?.mensagem || 'Não foi possível carregar o livro para edição.')
+        setError(mensagemDeApi(err, 'Não foi possível carregar o livro para edição.'))
       } finally {
         setLoading(false)
       }
@@ -98,9 +99,9 @@ export default function LivroFormPage() {
 
       navigate('/admin/livros')
     } catch (err) {
-      const fieldErrors = err?.erros || err?.details?.erros || {}
+      const fieldErrors = normalizarErrosDeCampo(err?.erros || err?.details?.erros || {})
       setApiErrors(fieldErrors)
-      setError(err?.mensagem || 'Não foi possível salvar o livro.')
+      setError(mensagemDeApi(err, 'Não foi possível salvar o livro.'))
     } finally {
       setIsSubmitting(false)
     }

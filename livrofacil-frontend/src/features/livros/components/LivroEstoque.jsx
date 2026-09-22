@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { atualizarEstoque, buscarEstoque } from '../api/livrosApi'
 import { buildEstoquePayload, validarEstoque } from '../utils/livroFormatters'
+import { erroDoCampo, mensagemDeApi, normalizarErrosDeCampo } from '@/shared/api/errorUtils'
 
 const vazio = { quantidadeDisponivel: '', quantidadeBloqueada: '', quantidadeVendida: '' }
 
@@ -25,7 +26,7 @@ export default function LivroEstoque({ livroId, editavel = false }) {
         quantidadeVendida: resposta.quantidadeVendida,
       } : vazio)
     } catch (err) {
-      setErro(err?.status === 404 ? 'Estoque não cadastrado para este livro.' : err?.mensagem || 'Não foi possível carregar o estoque.')
+      setErro(err?.status === 404 ? 'Estoque não cadastrado para este livro.' : mensagemDeApi(err, 'Não foi possível carregar o estoque.'))
     } finally {
       setCarregando(false)
     }
@@ -46,7 +47,8 @@ export default function LivroEstoque({ livroId, editavel = false }) {
       setEstoque(resposta)
       setMensagem('Estoque atualizado com sucesso.')
     } catch (err) {
-      setErro(err?.mensagem || 'Não foi possível atualizar o estoque.')
+      setErros(normalizarErrosDeCampo(err?.erros || {}))
+      setErro(mensagemDeApi(err, 'Não foi possível atualizar o estoque.'))
     } finally {
       setSalvando(false)
     }
@@ -66,7 +68,7 @@ export default function LivroEstoque({ livroId, editavel = false }) {
             <label key={campo} className="label">
               {campo === 'quantidadeDisponivel' ? 'Disponível' : campo === 'quantidadeBloqueada' ? 'Bloqueada' : 'Vendida'}
               <input className="input-field" type="number" min="0" step="1" value={form[campo]} onChange={(event) => setForm((prev) => ({ ...prev, [campo]: event.target.value }))} />
-              {erros[campo] && <small style={{ color: 'var(--danger)' }}>{erros[campo]}</small>}
+              {erroDoCampo(erros, campo) && <small style={{ color: 'var(--danger)' }}>{erroDoCampo(erros, campo)}</small>}
             </label>
           ))}
           <button className="btn-primary" disabled={salvando}>{salvando ? 'Salvando...' : 'Salvar estoque'}</button>

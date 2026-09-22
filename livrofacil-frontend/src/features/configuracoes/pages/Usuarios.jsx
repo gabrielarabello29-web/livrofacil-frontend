@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import AdminSidebar from '../../components/AdminSidebar'
-import Modal from '../../components/Modal'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
+import Modal from '@/shared/components/Modal'
 
 const usuarios_admin = [
   { id: 1, nome: 'Admin LivroFácil', email: 'admin@email.com', perfil: 'Administrador', status: 'Ativo', ultimoAcesso: 'Agora' },

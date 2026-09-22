@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
-import ClienteSidebar from '../../components/ClienteSidebar'
-import Modal from '../../components/Modal'
-import { useAuth } from '../../context/AuthContext'
+import Header from '@/shared/components/Header'
+import Footer from '@/shared/components/Footer'
+import ClienteSidebar from '@/shared/layouts/cliente/ClienteSidebar'
+import Modal from '@/shared/components/Modal'
+import { useAuth } from '@/features/auth/context/AuthContext'
 
 const estadosBR = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 

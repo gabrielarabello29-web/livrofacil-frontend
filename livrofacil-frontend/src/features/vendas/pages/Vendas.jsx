@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import AdminSidebar from '../../components/AdminSidebar'
-import { pedidos_mock, vendaService } from '../../services/vendaService'
-import StatusActions from '../../components/StatusActions'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
+import { pedidos_mock, vendaService } from '@/features/vendas/api/vendaService'
+import StatusActions from '@/features/pedidos/components/StatusActions'
 
 const initial_pedidos = [
   { id: '#1089', cliente: 'Ana Silva', data: '20/01/2025', valor: 97.80, status: 'Entregue', pagamento: 'Cartão' },

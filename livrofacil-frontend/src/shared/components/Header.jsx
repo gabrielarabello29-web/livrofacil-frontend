@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { useCarrinho } from '../context/CarrinhoContext'
+import { useAuth } from '@/features/auth/context/AuthContext'
+import { useCarrinho } from '@/features/carrinho/context/CarrinhoContext'
 
 export default function Header() {
   const { usuario, logout } = useAuth()
@@ -47,6 +47,9 @@ export default function Header() {
           <Link to="/livros?novidades=true" style={{ padding: '6px 12px', borderRadius: 6, fontSize: 14, fontWeight: 500, color: 'var(--text)', textDecoration: 'none', transition: 'background 0.15s' }}
             onMouseEnter={e => e.target.style.background = '#F3F4F6'}
             onMouseLeave={e => e.target.style.background = 'transparent'}>Novidades</Link>
+          <Link to="/livros" style={{ padding: '6px 12px', borderRadius: 6, fontSize: 14, fontWeight: 500, color: 'var(--text)', textDecoration: 'none', transition: 'background 0.15s' }}
+            onMouseEnter={e => e.target.style.background = '#F3F4F6'}
+            onMouseLeave={e => e.target.style.background = 'transparent'}>Mais vendidos</Link>
         </nav>
 
         {/* Search */}
@@ -70,7 +73,7 @@ export default function Header() {
 
         {/* Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-          <Link to="/livros" title="Favoritos" style={{ padding: 8, borderRadius: 8, color: 'var(--text-muted)', display: 'flex', transition: 'background 0.15s', textDecoration: 'none' }}
+          <Link to="/favoritos" title="Favoritos" style={{ padding: 8, borderRadius: 8, color: 'var(--text-muted)', display: 'flex', transition: 'background 0.15s', textDecoration: 'none' }}
             onMouseEnter={e => e.currentTarget.style.background = '#F3F4F6'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -124,7 +127,6 @@ export default function Header() {
                       </Link>
                     )}
                     <Link to="/perfil" onClick={() => setUserMenuAberto(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 14, color: 'var(--text)', textDecoration: 'none' }}>Meu Perfil</Link>
-                    <Link to="/meus-pedidos" onClick={() => setUserMenuAberto(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 14, color: 'var(--text)', textDecoration: 'none' }}>Meus Pedidos</Link>
                     <div style={{ borderTop: '1px solid #F3F4F6' }}>
                       <button onClick={handleLogout} style={{ width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 14, color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}>Sair</button>
                     </div>

@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api } from '@/shared/api/api'
 
 export const carrinhoService = {
   buscarCarrinho: async () => api.get('/carrinho'),

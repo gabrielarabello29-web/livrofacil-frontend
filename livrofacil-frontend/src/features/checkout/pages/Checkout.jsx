@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import Header from '../../components/Header'
-import { useCarrinho } from '../../context/CarrinhoContext'
-import { useAuth } from '../../context/AuthContext'
-import PaymentSplit from '../../components/PaymentSplit'
-import { pedidoService } from '../../services/pedidoService'
-import { clienteService } from '../../services/clienteService'
-import { cupomService } from '../../services/cupomService'
+import Header from '@/shared/components/Header'
+import { useCarrinho } from '@/features/carrinho/context/CarrinhoContext'
+import { useAuth } from '@/features/auth/context/AuthContext'
+import PaymentSplit from '@/features/checkout/components/PaymentSplit'
+import { pedidoService } from '@/features/pedidos/api/pedidoService'
+import { clienteService } from '@/features/cliente/api/clienteService'
+import { cupomService } from '@/features/cupom/api/cupomService'
 
 const etapas = ['Endereço', 'Pagamento', 'Resumo']
 
@@ -126,11 +126,11 @@ export default function Checkout() {
     <div>
       <Header />
       <main>
-        <div className="page-container" style={{ paddingTop: 40, paddingBottom: 80 }}>
+        <div className="page-container checkout-page" style={{ paddingTop: 40, paddingBottom: 80 }}>
           <h1 style={{ margin: '0 0 8px', fontSize: 26, fontWeight: 800, color: 'var(--text)' }}>Checkout</h1>
 
           {/* Stepper */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 40, maxWidth: 420 }}>
+          <div className="checkout-stepper" style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 40, maxWidth: 420 }}>
             {etapas.map((label, i) => (
               <div key={label} style={{ display: 'flex', alignItems: 'center', flex: i < etapas.length - 1 ? 1 : 'none' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
@@ -144,11 +144,11 @@ export default function Checkout() {
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 32, alignItems: 'flex-start' }}>
+          <div className="checkout-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 32, alignItems: 'flex-start' }}>
             <div>
               {/* Etapa 0: Endereço */}
               {etapa === 0 && (
-                <div className="card" style={{ padding: 24 }}>
+                <div className="card checkout-panel" style={{ padding: 24 }}>
                   <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>Endereço de entrega</h2>
 
                   {enderecos.length === 0 && !showNewAddressForm && (
@@ -209,7 +209,7 @@ export default function Checkout() {
 
               {/* Etapa 1: Pagamento */}
               {etapa === 1 && (
-                <div className="card" style={{ padding: 24 }}>
+                <div className="card checkout-panel" style={{ padding: 24 }}>
                   <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>Forma de pagamento</h2>
                   <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
                     {[['cartao', '💳 Cartão'], ['pix', '📲 Pix'], ['boleto', '📄 Boleto']].map(([val, label]) => (
@@ -267,7 +267,7 @@ export default function Checkout() {
 
               {/* Etapa 2: Resumo */}
               {etapa === 2 && (
-                <div className="card" style={{ padding: 24 }}>
+                <div className="card checkout-panel" style={{ padding: 24 }}>
                   <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>Confirmar pedido</h2>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
                     {itens.map(item => (
@@ -292,7 +292,7 @@ export default function Checkout() {
             </div>
 
             {/* Summary */}
-            <div className="card" style={{ padding: 20 }}>
+            <div className="card order-summary" style={{ padding: 20 }}>
               <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Resumo</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {itens.map(i => (

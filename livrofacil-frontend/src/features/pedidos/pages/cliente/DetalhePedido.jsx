@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
-import { pedidoService } from '../../services/pedidoService'
-import { useAuth } from '../../context/AuthContext'
+import Header from '@/shared/components/Header'
+import Footer from '@/shared/components/Footer'
+import { pedidoService } from '@/features/pedidos/api/pedidoService'
+import { useAuth } from '@/features/auth/context/AuthContext'
 
 export default function DetalhePedido() {
   const { id } = useParams()

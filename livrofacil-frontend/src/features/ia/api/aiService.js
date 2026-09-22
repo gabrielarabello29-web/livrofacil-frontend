@@ -1,5 +1,5 @@
-import { listarLivrosAtivos, buscarLivrosPorTitulo } from '../features/livros/api/livrosApi'
-import { normalizarLivroDaApi } from '../features/livros/utils/livroFormatters'
+import { listarLivrosAtivos, buscarLivrosPorTitulo } from '@/features/livros/api/livrosApi'
+import { normalizarLivroDaApi } from '@/features/livros/utils/livroFormatters'
 
 const normalizarTexto = (texto) => {
   return texto

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
-import ClienteSidebar from '../../components/ClienteSidebar'
+import Header from '@/shared/components/Header'
+import Footer from '@/shared/components/Footer'
+import ClienteSidebar from '@/shared/layouts/cliente/ClienteSidebar'
 
 const pedidos = [
   { id: 1001, data: '15/12/2024', valor: 97.80, status: 'Entregue', pagamento: 'Cartão Mastercard', itens: ['Hábitos Atômicos', 'Pai Rico Pai Pobre'] },

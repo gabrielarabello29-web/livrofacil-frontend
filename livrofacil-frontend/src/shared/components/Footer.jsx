@@ -30,7 +30,7 @@ export default function Footer() {
           <div>
             <h4 style={{ color: '#fff', fontSize: 14, fontWeight: 600, margin: '0 0 16px' }}>Conta</h4>
             <nav style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[['/perfil', 'Meu Perfil'], ['/meus-pedidos', 'Meus Pedidos'], ['/trocas', 'Trocas'], ['/carrinho', 'Carrinho']].map(([href, label]) => (
+              {[['/perfil', 'Meu Perfil'], ['/trocas', 'Trocas'], ['/carrinho', 'Carrinho']].map(([href, label]) => (
                 <Link key={href} to={href} style={{ color: '#9CA3AF', fontSize: 14, textDecoration: 'none' }}
                   onMouseEnter={e => e.target.style.color = '#fff'}
                   onMouseLeave={e => e.target.style.color = '#9CA3AF'}>{label}</Link>

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { aiService } from '../services/aiService'
+import { aiService } from '@/features/ia/api/aiService'
 
 export default function ChatBot() {
   const [aberto, setAberto] = useState(false)

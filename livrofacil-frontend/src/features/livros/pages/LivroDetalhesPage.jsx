@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import Header from '../../../components/Header'
-import Footer from '../../../components/Footer'
-import ChatBot from '../../../components/ChatBot'
+import Header from '@/shared/components/Header'
+import Footer from '@/shared/components/Footer'
+import ChatBot from '@/features/ia/components/ChatBot'
 import { buscarLivroPorId } from '../api/livrosApi'
+import { buscarLivroCatalogo } from '../../catalogo/api/catalogoApi'
 import { formatarDinheiro, normalizarLivroDaApi } from '../utils/livroFormatters'
 import LivroCover from '../components/LivroCover'
 import LivroEstoque from '../components/LivroEstoque'
+import ComprarButton from '../../catalogo/components/ComprarButton'
+import FavoriteButton from '@/features/favoritos/components/FavoriteButton'
 
-export default function LivroDetalhesPage() {
+export default function LivroDetalhesPage({ administrativo = false }) {
   const { id } = useParams()
   const [livro, setLivro] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -22,7 +25,7 @@ export default function LivroDetalhesPage() {
       setError('')
 
       try {
-        const resposta = await buscarLivroPorId(id)
+        const resposta = administrativo ? await buscarLivroPorId(id) : await buscarLivroCatalogo(id)
         if (!ativo) return
         setLivro(normalizarLivroDaApi(resposta))
       } catch (err) {
@@ -38,7 +41,7 @@ export default function LivroDetalhesPage() {
     return () => {
       ativo = false
     }
-  }, [id])
+  }, [administrativo, id])
 
   if (loading) {
     return (
@@ -80,13 +83,13 @@ export default function LivroDetalhesPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 340px) 1fr', gap: 48, alignItems: 'flex-start' }}>
             <div>
-              <div style={{ background: '#F5F3FF', borderRadius: 18, overflow: 'hidden', boxShadow: '0 12px 40px rgba(124,58,237,0.12)' }}>
+              <div style={{ background: '#F5F3FF', borderRadius: 18, overflow: 'hidden', boxShadow: '0 12px 40px rgba(124,58,237,0.12)', position: 'relative' }}>
+                {!administrativo && <FavoriteButton livro={livro} />}
                 <LivroCover src={livro.imagemUrl} alt={`Capa de ${livro.titulo}`} style={{ width: '100%', aspectRatio: '3 / 4' }} />
               </div>
             </div>
 
             <div>
-              <span className="badge badge-purple" style={{ marginBottom: 14 }}>{livro.grupoPrecificacaoNome || 'Livro'}</span>
               <h1 style={{ margin: '0 0 8px', fontSize: 30, fontWeight: 900, lineHeight: 1.2, color: 'var(--text)' }}>{livro.titulo}</h1>
               <p style={{ margin: '0 0 16px', fontSize: 16, color: 'var(--text-muted)' }}>por <strong style={{ color: 'var(--text)' }}>{livro.autorNome || 'Autor não informado'}</strong></p>
 
@@ -97,7 +100,7 @@ export default function LivroDetalhesPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: livro.ativo ? '#10B981' : '#EF4444', display: 'inline-block' }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: livro.ativo ? '#065F46' : '#991B1B' }}>
-                  {livro.ativo ? 'Disponível no catálogo' : 'Indisponível no catálogo'}
+                  {livro.ativo ? 'Disponível para compra' : 'Indisponível no momento'}
                 </span>
               </div>
 
@@ -120,9 +123,10 @@ export default function LivroDetalhesPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 12, marginBottom: 28 }}>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
                 <Link to="/livros" className="btn-secondary">Voltar ao catálogo</Link>
-                <Link to="/admin/livros" className="btn-primary">Área administrativa</Link>
+                {!administrativo && <ComprarButton livro={livro} />}
+                {administrativo && <Link to="/admin/livros" className="btn-primary">Voltar ao painel</Link>}
               </div>
             </div>
           </div>
@@ -132,18 +136,18 @@ export default function LivroDetalhesPage() {
               <h2 style={{ margin: '0 0 20px', fontSize: 20, fontWeight: 800 }}>Detalhes do livro</h2>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
-                <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Código</p><p style={{ margin: 0 }}>{livro.codigo || '—'}</p></div>
-                <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>ISBN</p><p style={{ margin: 0 }}>{livro.isbn || '—'}</p></div>
-                <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Código de barras</p><p style={{ margin: 0 }}>{livro.codigoBarras || '—'}</p></div>
+                {administrativo && <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Código</p><p style={{ margin: 0 }}>{livro.codigo || '—'}</p></div>}
+                {administrativo && <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>ISBN</p><p style={{ margin: 0 }}>{livro.isbn || '—'}</p></div>}
+                {administrativo && <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Código de barras</p><p style={{ margin: 0 }}>{livro.codigoBarras || '—'}</p></div>}
                 <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ano</p><p style={{ margin: 0 }}>{livro.ano || '—'}</p></div>
-                <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Grupo</p><p style={{ margin: 0 }}>{livro.grupoPrecificacaoNome || '—'}</p></div>
-                <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status</p><p style={{ margin: 0 }}>{livro.ativo ? 'Ativo' : 'Inativo'}</p></div>
+                {administrativo && <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Grupo</p><p style={{ margin: 0 }}>{livro.grupoPrecificacaoNome || '—'}</p></div>}
+                <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Disponibilidade</p><p style={{ margin: 0 }}>{livro.ativo ? 'Disponível para compra' : 'Indisponível no momento'}</p></div>
               </div>
 
-              <div style={{ marginTop: 24 }}>
+              {administrativo && <div style={{ marginTop: 24 }}>
                 <h3 style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 700 }}>Sinopse</h3>
                 <p style={{ margin: 0, lineHeight: 1.8, color: 'var(--text)' }}>{livro.sinopse || 'Sinopse não informada.'}</p>
-              </div>
+              </div>}
 
               <div style={{ marginTop: 24 }}>
                 <h3 style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 700 }}>Categorias</h3>
@@ -154,7 +158,7 @@ export default function LivroDetalhesPage() {
                 </div>
               </div>
 
-              <div style={{ marginTop: 24 }}>
+              {administrativo && <div style={{ marginTop: 24 }}>
                 <h3 style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 700 }}>Dimensões</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
                   <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Altura</p><p style={{ margin: 0 }}>{livro.dimensao?.altura ? `${livro.dimensao.altura} cm` : '—'}</p></div>
@@ -162,12 +166,10 @@ export default function LivroDetalhesPage() {
                   <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Profundidade</p><p style={{ margin: 0 }}>{livro.dimensao?.profundidade ? `${livro.dimensao.profundidade} cm` : '—'}</p></div>
                   <div><p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso</p><p style={{ margin: 0 }}>{livro.dimensao?.peso ? `${livro.dimensao.peso} kg` : '—'}</p></div>
                 </div>
-              </div>
+              </div>}
             </div>
           </div>
-          <div style={{ marginTop: 20 }}>
-            <LivroEstoque livroId={livro.id} />
-          </div>
+          {administrativo && <div style={{ marginTop: 20 }}><LivroEstoque livroId={livro.id} /></div>}
         </div>
       </main>
       <Footer />

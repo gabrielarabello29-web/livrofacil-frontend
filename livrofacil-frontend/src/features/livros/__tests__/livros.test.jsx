@@ -1,6 +1,6 @@
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, it, expect, vi } from 'vitest'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LivrosPage from '../pages/LivrosPage'
@@ -32,6 +32,7 @@ const mockLivros = [
 ]
 
 vi.mock('../api/livrosApi', () => ({
+  tratarResposta: vi.fn(),
   listarLivrosAtivos: vi.fn(async () => mockLivros),
   buscarLivrosPorTitulo: vi.fn(async (titulo) => (titulo === 'Clean' ? mockLivros : [])),
   buscarLivroPorId: vi.fn(async () => mockLivros[0]),
@@ -41,6 +42,28 @@ vi.mock('../api/livrosApi', () => ({
   inativarLivro: vi.fn(async () => ({ ok: true })),
 }))
 
+vi.mock('../../catalogo/api/catalogoApi', () => ({
+  listarCatalogo: vi.fn(async () => mockLivros),
+  buscarCatalogoPorTitulo: vi.fn(async (titulo) => (titulo === 'Clean' ? mockLivros : [])),
+}))
+
+vi.mock('@/features/auth/context/AuthContext', () => ({
+  useAuth: () => ({ usuario: null, logout: vi.fn() }),
+}))
+
+vi.mock('@/features/carrinho/context/CarrinhoContext', () => ({
+  useCarrinho: () => ({ itens: [], adicionarItem: vi.fn(), operando: false, totalItens: 0 }),
+}))
+
+vi.mock('@/features/favoritos/context/FavoritosContext', () => ({
+  useFavoritos: () => ({ favoritos: [], isFavorito: () => false, toggleFavorito: vi.fn() }),
+}))
+
+vi.mock('@/shared/components/Header', () => ({ default: () => null }))
+vi.mock('@/shared/components/Footer', () => ({ default: () => null }))
+vi.mock('@/features/ia/components/ChatBot', () => ({ default: () => null }))
+vi.mock('@/features/livros/components/LivroCard', () => ({ default: ({ livro }) => <div>{livro.titulo}</div> }))
+
 const opcoes = {
   autores: [{ id: 7, nome: 'Autor real' }],
   editoras: [{ id: 8, nome: 'Editora real' }],
@@ -49,7 +72,8 @@ const opcoes = {
 }
 
 describe('módulo de livros', () => {
-  beforeEach(() => {
+  afterEach(() => {
+    cleanup()
     vi.clearAllMocks()
   })
 
@@ -73,14 +97,15 @@ describe('módulo de livros', () => {
 
     const input = screen.getByPlaceholderText('Buscar por título...')
     await user.type(input, 'Clean')
+    await user.click(screen.getByRole('button', { name: 'Pesquisar' }))
     await waitFor(() => {
       expect(screen.getByText('Clean Code')).toBeInTheDocument()
     })
   })
 
   it('renderiza lista vazia', async () => {
-    const { listarLivrosAtivos } = await import('../api/livrosApi')
-    listarLivrosAtivos.mockResolvedValueOnce([])
+    const { listarCatalogo } = await import('../../catalogo/api/catalogoApi')
+    listarCatalogo.mockResolvedValueOnce([])
 
     render(
       <MemoryRouter>

@@ -1,4 +1,4 @@
-import AdminSidebar from '../../components/AdminSidebar'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 
 const kpis = [

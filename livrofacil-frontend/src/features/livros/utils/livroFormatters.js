@@ -187,6 +187,9 @@ export function validarEstoque(form) {
     if (valor === '' || valor === null || valor === undefined) erros[campo] = 'Informe uma quantidade.'
     else if (!Number.isInteger(Number(valor)) || Number(valor) < 0) erros[campo] = 'Informe um número inteiro não negativo.'
   }
+  if (!erros.quantidadeDisponivel && !erros.quantidadeBloqueada && Number(form.quantidadeBloqueada) > Number(form.quantidadeDisponivel)) {
+    erros.quantidadeBloqueada = 'A quantidade bloqueada não pode ser maior que a quantidade disponível.'
+  }
   return erros
 }
 

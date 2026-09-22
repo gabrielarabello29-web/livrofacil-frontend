@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import Header from '../components/Header'
-import Footer from '../components/Footer'
-import ChatBot from '../components/ChatBot'
-import { listarCategorias, listarLivrosAtivos } from '../features/livros/api/livrosApi'
-import { normalizarLivroDaApi } from '../features/livros/utils/livroFormatters'
+import Header from '@/shared/components/Header'
+import Footer from '@/shared/components/Footer'
+import ChatBot from '@/features/ia/components/ChatBot'
+import { listarCatalogo } from '@/features/catalogo/api/catalogoApi'
+import { normalizarLivroDaApi } from '@/features/livros/utils/livroFormatters'
 
 const CORES = ['#EDE9FE', '#DBEAFE', '#D1FAE5', '#FEF3C7', '#FCE7F3', '#FFE4E6', '#ECFCCB', '#F3F4F6', '#FFF7ED']
 
@@ -18,9 +18,13 @@ export default function Categorias() {
     setCarregando(true)
     setErro('')
     try {
-      const [categoriasResposta, livrosResposta] = await Promise.all([listarCategorias(), listarLivrosAtivos()])
-      setCategorias(Array.isArray(categoriasResposta) ? categoriasResposta : [])
-      setLivros(Array.isArray(livrosResposta) ? livrosResposta.map(normalizarLivroDaApi).filter((livro) => livro.ativo) : [])
+      const livrosResposta = await listarCatalogo()
+      const livrosCatalogo = Array.isArray(livrosResposta) ? livrosResposta.map(normalizarLivroDaApi).filter((livro) => livro.ativo) : []
+      setLivros(livrosCatalogo)
+      const categoriasReais = [...new Set(livrosCatalogo.flatMap((livro) => livro.categoriaNomes || []))]
+        .map((nome) => ({ id: nome, nome }))
+        .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
+      setCategorias(categoriasReais)
     } catch (err) {
       setCategorias([])
       setLivros([])
@@ -34,7 +38,7 @@ export default function Categorias() {
 
   const categoriasComContagem = useMemo(() => categorias.map((categoria, index) => ({
     ...categoria,
-    quantidade: livros.filter((livro) => livro.categoriaIds.includes(Number(categoria.id))).length,
+    quantidade: livros.filter((livro) => (livro.categoriaNomes || []).some((nome) => String(nome).trim().toLocaleLowerCase('pt-BR') === String(categoria.nome).trim().toLocaleLowerCase('pt-BR'))).length,
     cor: CORES[index % CORES.length],
   })), [categorias, livros])
 

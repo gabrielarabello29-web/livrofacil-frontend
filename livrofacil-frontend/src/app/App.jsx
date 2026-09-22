@@ -1,12 +1,15 @@
-import AppRoutes from './routes/AppRoutes'
-import { AuthProvider } from './context/AuthContext'
-import { CarrinhoProvider } from './context/CarrinhoContext'
+import AppRoutes from '@/app/AppRoutes'
+import { AuthProvider } from '@/features/auth/context/AuthContext'
+import { CarrinhoProvider } from '@/features/carrinho/context/CarrinhoContext'
+import { FavoritosProvider } from '@/features/favoritos/context/FavoritosContext'
 
 export default function App() {
   return (
     <AuthProvider>
       <CarrinhoProvider>
-        <AppRoutes />
+        <FavoritosProvider>
+          <AppRoutes />
+        </FavoritosProvider>
       </CarrinhoProvider>
     </AuthProvider>
   )

@@ -1,7 +1,24 @@
 const API_URL = 'http://localhost:8080/api'
 
+export async function tratarResposta(response) {
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw {
+      status: response.status,
+      erro: data.erro || 'Erro',
+      mensagem: data.mensagem || 'Não foi possível concluir a operação.',
+      erros: data.erros || {},
+      caminho: data.caminho || '',
+      timestamp: data.timestamp || null,
+    }
+  }
+
+  return data
+}
+
 async function request(method, path, body) {
-  const url = path.includes('?') ? `${API_URL}${path}` : `${API_URL}${path}`
+  const url = `${API_URL}${path}`
 
   let response
   try {
@@ -19,36 +36,7 @@ async function request(method, path, body) {
     }
   }
 
-  let payload = null
-  const contentType = response.headers.get('content-type') || ''
-
-  if (contentType.includes('application/json')) {
-    try {
-      payload = await response.json()
-    } catch {
-      payload = null
-    }
-  } else {
-    try {
-      payload = await response.text()
-    } catch {
-      payload = null
-    }
-  }
-
-  if (!response.ok) {
-    const detalhes = payload && typeof payload === 'object' ? payload : {}
-    const mensagem = detalhes.mensagem || detalhes.message || 'Não foi possível concluir a operação.'
-    const erro = {
-      status: response.status,
-      mensagem,
-      erros: detalhes.erros || {},
-      detalhes,
-    }
-    throw erro
-  }
-
-  return payload
+  return tratarResposta(response)
 }
 
 export { API_URL }

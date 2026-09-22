@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import AdminSidebar from '../../components/AdminSidebar'
+import { useEffect, useState } from 'react'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
+import { formaPagamentoService } from '@/features/cliente/api/formaPagamentoService'
 
 const abas = ['Geral', 'Pagamentos', 'E-mail', 'Frete', 'Segurança']
 
@@ -7,6 +8,40 @@ export default function AdminConfiguracoes() {
   const [aba, setAba] = useState('Geral')
   const [salvando, setSalvando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
+  const [bandeiras, setBandeiras] = useState([])
+  const [carregandoBandeiras, setCarregandoBandeiras] = useState(false)
+  const [bandeiraAcaoId, setBandeiraAcaoId] = useState(null)
+  const [erroBandeiras, setErroBandeiras] = useState('')
+
+  async function carregarBandeiras() {
+    setCarregandoBandeiras(true)
+    setErroBandeiras('')
+    try {
+      const resposta = await formaPagamentoService.listarBandeiras()
+      setBandeiras(Array.isArray(resposta?.data) ? resposta.data : Array.isArray(resposta) ? resposta : [])
+    } catch (error) {
+      setErroBandeiras(error?.message || 'Não foi possível carregar as bandeiras.')
+    } finally {
+      setCarregandoBandeiras(false)
+    }
+  }
+
+  async function alterarBandeira(bandeira, disponivel) {
+    if (bandeiraAcaoId) return
+    setBandeiraAcaoId(bandeira.id)
+    setErroBandeiras('')
+    try {
+      const resposta = await formaPagamentoService.atualizarBandeira(bandeira.id, disponivel)
+      setBandeiras((atuais) => atuais.map((item) => item.id === bandeira.id ? { ...item, ...(resposta || {}), disponivel } : item))
+      setSucesso(true)
+    } catch (error) {
+      setErroBandeiras(error?.message || 'Não foi possível atualizar a bandeira.')
+    } finally {
+      setBandeiraAcaoId(null)
+    }
+  }
+
+  useEffect(() => { carregarBandeiras() }, [])
 
   async function salvar(e) {
     e.preventDefault()
@@ -56,9 +91,15 @@ export default function AdminConfiguracoes() {
             )}
 
             {aba === 'Pagamentos' && (
-              <div className="card" style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div className="card" style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Bandeiras de cartão</h3>
+                  {erroBandeiras && <div style={{ color: '#991B1B' }}>{erroBandeiras}</div>}
+                  {carregandoBandeiras ? <div>Carregando bandeiras...</div> : bandeiras.map((bandeira) => <label key={bandeira.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#F9FAFB', borderRadius: 8 }}><span>{bandeira.nome}<small style={{ display: 'block', color: 'var(--text-muted)' }}>{bandeira.disponivel ? 'Disponível para clientes' : 'Desabilitada'}</small></span><input type="checkbox" checked={Boolean(bandeira.disponivel)} disabled={bandeiraAcaoId === bandeira.id} onChange={(event) => alterarBandeira(bandeira, event.target.checked)} style={{ accentColor: 'var(--primary)', width: 18, height: 18 }} /></label>)}
+                </div>
+                <div className="card" style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700 }}>Métodos de pagamento</h3>
-                {[['Cartão de crédito', true], ['Cartão de débito', true], ['Pix', true], ['Boleto bancário', false]].map(([m, ativo]) => (
+                {[['Cartão de crédito', true], ['Pix', true], ['Boleto bancário', false]].map(([m, ativo]) => (
                   <label key={m} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: '#F9FAFB', borderRadius: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 500 }}>{m}</span>
                     <input type="checkbox" defaultChecked={ativo} style={{ accentColor: 'var(--primary)', width: 18, height: 18 }} />
@@ -70,6 +111,7 @@ export default function AdminConfiguracoes() {
                   </select>
                 </div>
                 <div><label className="label">Desconto Pix (%)</label><input className="input-field" type="number" defaultValue="5" min="0" max="20" /></div>
+                </div>
               </div>
             )}
 

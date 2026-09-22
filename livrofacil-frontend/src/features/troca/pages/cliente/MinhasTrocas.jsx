@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
-import ClienteSidebar from '../../components/ClienteSidebar'
+import Header from '@/shared/components/Header'
+import Footer from '@/shared/components/Footer'
+import ClienteSidebar from '@/shared/layouts/cliente/ClienteSidebar'
 
 const trocas = [
   { id: 'TRK-001', pedido: '#1001', produto: 'Hábitos Atômicos', data: '20/12/2024', status: 'Em troca', motivo: 'Produto danificado' },

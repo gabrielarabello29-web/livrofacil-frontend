@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api } from '@/shared/api/api'
 
 export const pedidos_mock = [
   { id: 1001, cliente: 'Ana Silva', data: '2024-12-15', valor: 97.80, status: 'Entregue', pagamento: 'Cartão de crédito', itens: ['Hábitos Atômicos', 'Pai Rico Pai Pobre'] },

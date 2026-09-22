@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import Cadastro from '../cadastro/Cadastro'
-import { useAuth } from '../../context/AuthContext'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import Cadastro from '@/features/auth/pages/Cadastro'
+import { useAuth } from '@/features/auth/context/AuthContext'
 
 export default function Login({ initialMode = 'login' }) {
   const { login, usuario } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [modo, setModo] = useState(initialMode)
   const [form, setForm] = useState({ email: '', senha: '' })
   const [erro, setErro] = useState('')
@@ -19,6 +20,13 @@ export default function Login({ initialMode = 'login' }) {
       navigate(usuario.perfil?.toUpperCase() === 'ADMIN' ? '/admin' : '/', { replace: true })
     }
   }, [usuario, navigate])
+
+  useEffect(() => {
+    if (location.state?.mensagem) {
+      setErro(location.state.mensagem)
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [location.state])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)

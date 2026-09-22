@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
-import ClienteSidebar from '../../components/ClienteSidebar'
-import { useAuth } from '../../context/AuthContext'
-import { clienteService } from '../../services/clienteService'
+import Header from '@/shared/components/Header'
+import Footer from '@/shared/components/Footer'
+import ClienteSidebar from '@/shared/layouts/cliente/ClienteSidebar'
+import { useAuth } from '@/features/auth/context/AuthContext'
+import { clienteService } from '@/features/cliente/api/clienteService'
 
 function validarSenha(senha) {
   return /^(?=.{8,}$)(?=.*[A-Z])(?=.*[^A-Za-z0-9]).*$/.test(senha)
@@ -31,6 +31,7 @@ export default function Perfil() {
   })
   const [senhas, setSenhas] = useState({ atual: '', nova: '', confirmar: '' })
   const [salvando, setSalvando] = useState(false)
+  const [excluindo, setExcluindo] = useState(false)
   const [sucesso, setSucesso] = useState('')
   const [erro, setErro] = useState('')
 
@@ -44,6 +45,7 @@ export default function Perfil() {
 
   async function salvarPerfil(e) {
     e.preventDefault()
+    if (usuario?.ativo === false) { setErro('Esta conta já foi excluída.'); return }
     setErro('')
     if (form.dataNascimento && form.dataNascimento > new Date().toISOString().slice(0, 10)) {
       setErro('A data de nascimento não pode ser futura.')
@@ -71,6 +73,7 @@ export default function Perfil() {
 
   async function salvarSenha(e) {
     e.preventDefault()
+    if (usuario?.ativo === false) { setErro('Esta conta já foi excluída.'); return }
     if (!senhas.atual) {
       setErro('Informe a senha atual.')
       return
@@ -102,19 +105,23 @@ export default function Perfil() {
   }
 
   async function handleExcluirConta() {
-    if (!confirm('Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.')) return
+    if (excluindo) return
+    const confirmacao = window.confirm('Excluir minha conta?\n\nA conta ficará inativa imediatamente e será mantida por 30 dias. Depois desse prazo, os dados pessoais serão anonimizados. Não será possível reativar a conta. Seus pedidos históricos não serão excluídos.\n\nDeseja continuar?')
+    if (!confirmacao) return
+    setExcluindo(true)
+    setErro('')
     try {
-      // excluirConta pode ser síncrono no mock; await funciona para ambos casos
       const res = await excluirConta()
       if (res && res.sucesso) {
-        alert('Conta excluída com sucesso. Você será deslogado.')
-        navigate('/')
+        navigate('/login', { replace: true, state: { mensagem: 'Sua conta foi excluída e a sessão foi encerrada.' } })
       } else {
-        alert('Erro ao excluir conta: ' + (res?.mensagem || 'Tente novamente.'))
+        setErro(res?.mensagem || 'Não foi possível excluir a conta. Tente novamente.')
       }
     } catch (err) {
       console.error(err)
-      alert('Erro ao excluir conta: tente novamente.')
+      setErro('Não foi possível excluir a conta. Tente novamente.')
+    } finally {
+      setExcluindo(false)
     }
   }
 
@@ -166,8 +173,8 @@ export default function Perfil() {
                   <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--text-muted)' }}>{usuario?.email}</p>
 
                   <div style={{ marginTop: 8 }}>
-                    <button className="btn-danger" onClick={handleExcluirConta} style={{ padding: '10px 14px' }}>
-                      Excluir conta
+                    <button className="btn-danger" onClick={handleExcluirConta} disabled={excluindo || salvando} style={{ padding: '10px 14px' }}>
+                      {excluindo ? 'Excluindo conta...' : 'Excluir minha conta'}
                     </button>
                   </div>
                 </div>

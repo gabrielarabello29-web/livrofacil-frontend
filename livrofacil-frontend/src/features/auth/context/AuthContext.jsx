@@ -1,6 +1,8 @@
 import React from 'react'
 import { createContext, useContext, useState, useEffect } from 'react'
-import { authApi } from '../features/auth/api/authApi'
+import { authApi } from '@/features/auth/api/authApi'
+import { clienteService } from '@/features/cliente/api/clienteService'
+import { criarOuAssociarCarrinho } from '@/features/carrinho/api/carrinhoApi'
 
 const STORAGE_KEY = 'usuario'
 
@@ -16,6 +18,8 @@ function normalizarUsuario(dados) {
   return {
     ...dados,
     id: dados.id ?? null,
+    uuid: dados.uuid || null,
+    numeroRegistro: dados.numeroRegistro ?? null,
     nome: dados.nome || '',
     email: dados.email || '',
     ativo: dados.ativo ?? true,
@@ -70,8 +74,14 @@ export function AuthProvider({ children }) {
     try {
       const resposta = await authApi.login(emailLimpo, senhaLimpa)
       const usuarioAtual = normalizarUsuario(resposta)
+      if (usuarioAtual?.ativo === false) {
+        return { sucesso: false, mensagem: 'Esta conta já foi excluída.', status: 403 }
+      }
       setUsuario(usuarioAtual)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(usuarioAtual))
+      const carrinhoId = localStorage.getItem('carrinhoId')
+      const carrinhoToken = localStorage.getItem('carrinhoToken')
+      if (carrinhoId && usuarioAtual.id) await criarOuAssociarCarrinho({ token: carrinhoToken, clienteId: usuarioAtual.id })
       return { sucesso: true, usuario: usuarioAtual }
     } catch (error) {
       return {
@@ -88,6 +98,8 @@ export function AuthProvider({ children }) {
       const cliente = await clienteService.criarCliente(dados)
       const usuario = {
         id: cliente?.id,
+        uuid: cliente?.uuid || null,
+        numeroRegistro: cliente?.numeroRegistro ?? null,
         nome: cliente?.nome,
         email: cliente?.email,
         cpf: cliente?.cpf,
@@ -96,27 +108,44 @@ export function AuthProvider({ children }) {
         genero: cliente?.genero,
         perfil: 'CLIENTE',
       }
+      setUsuario(usuario)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(usuario))
+      const carrinhoId = localStorage.getItem('carrinhoId')
+      const carrinhoToken = localStorage.getItem('carrinhoToken')
+      if (carrinhoId && usuario.id) await criarOuAssociarCarrinho({ token: carrinhoToken, clienteId: usuario.id })
       return { sucesso: true, usuario }
     } catch (error) {
       return {
         sucesso: false,
         mensagem: error?.message || 'Não foi possível salvar o cliente. Verifique os dados informados.',
+        erros: error?.erros || error?.details?.erros || {},
       }
     }
   }
 
   function logout() {
     setUsuario(null)
-    localStorage.removeItem(STORAGE_KEY)
+    ;['usuario', 'token', 'accessToken', 'refreshToken', 'carrinhoId', 'carrinhoToken', 'pedidoCheckout', 'enderecoCheckout', 'checkoutCupom', 'favoritos', 'livrofacil-ordem-carrinho'].forEach((chave) => localStorage.removeItem(chave))
+    sessionStorage.clear()
   }
 
   function atualizarUsuario(dados) {
     setUsuario((prev) => normalizarUsuario({ ...(prev || {}), ...dados }))
   }
 
-  function excluirConta() {
-    if (!usuario) return { sucesso: false, mensagem: 'Nenhum usuário autenticado.' }
-    return { sucesso: false, mensagem: 'A exclusão de conta ainda depende do endpoint real do backend.' }
+  async function excluirConta() {
+    if (!usuario?.id) return { sucesso: false, mensagem: 'Nenhum usuário autenticado.' }
+    try {
+      const resposta = await clienteService.excluirConta(usuario.id)
+      logout()
+      window.history.replaceState(null, '', '/login')
+      return { sucesso: true, usuario: resposta }
+    } catch (error) {
+      const mensagem = String(error?.message || error?.mensagem || '')
+      if (error?.status === 409 || /pedido ativo/i.test(mensagem)) return { sucesso: false, mensagem: 'Não é possível excluir a conta enquanto houver pedidos ativos.' }
+      if (error?.status === 400 || error?.status === 404 || /inativ|exclu/i.test(mensagem)) return { sucesso: false, mensagem: 'Esta conta já foi excluída.' }
+      return { sucesso: false, mensagem: 'Não foi possível excluir a conta. Tente novamente.' }
+    }
   }
 
   const isAdmin = normalizarPerfil(usuario?.perfil) === 'ADMIN'

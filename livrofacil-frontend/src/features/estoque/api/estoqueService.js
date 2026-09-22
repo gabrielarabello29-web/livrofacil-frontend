@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api } from '@/shared/api/api'
 
 export const estoqueService = {
   listarEstoque: async () => api.get('/estoque'),

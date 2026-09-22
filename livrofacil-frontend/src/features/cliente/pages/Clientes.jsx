@@ -1,9 +1,39 @@
 import { useEffect, useState } from 'react'
-import AdminSidebar from '../../components/AdminSidebar'
-import { ApiError } from '../../services/api'
-import { clienteService } from '../../services/clienteService'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
+import { ApiError } from '@/shared/api/api'
+import { clienteService } from '@/features/cliente/api/clienteService'
+import { listarMeusPedidos } from '@/features/checkout/api/checkoutApi'
 
-const formularioInicial = { nome: '', email: '', telefone: '' }
+const formularioInicial = { nome: '', email: '', cpf: '', telefone: '', dataNascimento: '', genero: '' }
+const filtrosIniciais = { registro: '', nome: '', email: '', cpf: '', telefone: '', dataNascimento: '', genero: '', tipoEndereco: '', endereco: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '' }
+const camposBusca = [['registro', 'Nº de registro'], ['nome', 'Nome'], ['email', 'E-mail'], ['cpf', 'CPF'], ['telefone', 'Telefone'], ['dataNascimento', 'Data de nascimento'], ['genero', 'Gênero'], ['tipoEndereco', 'Tipo de endereço'], ['endereco', 'Endereço (logradouro e número)'], ['complemento', 'Complemento'], ['bairro', 'Bairro'], ['cidade', 'Cidade'], ['estado', 'Estado'], ['cep', 'CEP']]
+
+function contaExpirada(cliente) {
+  return !cliente.ativo && cliente.dataRemocaoDefinitiva && new Date(cliente.dataRemocaoDefinitiva).getTime() <= Date.now()
+}
+
+function clientesVisiveis(lista) { return lista.filter((cliente) => !contaExpirada(cliente)) }
+
+function contaExcluida(cliente) { return !cliente.ativo && Boolean(cliente.dataExclusao) }
+
+function diasRestantes(cliente) {
+  if (!cliente.dataRemocaoDefinitiva) return null
+  return Math.max(0, Math.ceil((new Date(cliente.dataRemocaoDefinitiva).getTime() - Date.now()) / 86400000))
+}
+
+function dataMaximaNascimento() {
+  const hoje = new Date()
+  return `${hoje.getFullYear() - 18}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`
+}
+
+function validarDataNascimento(data) {
+  if (!data) return ''
+  return data > dataMaximaNascimento() ? 'Você precisa ter pelo menos 18 anos.' : ''
+}
+
+const statusPedidoNomes = { EM_PROCESSAMENTO: 'Em processamento', PAGAMENTO_APROVADO: 'Pagamento aprovado', EM_SEPARACAO: 'Em separação', NA_TRANSPORTADORA: 'Na transportadora', EM_ROTA_DE_ENTREGA: 'Em rota de entrega', ENTREGUE: 'Entregue', FINALIZADO: 'Finalizado', CANCELADO: 'Cancelado' }
+
+function textoStatusPedido(status) { return statusPedidoNomes[status] || 'Não informado' }
 
 function aplicarMascaraTelefone(valor) {
   const apenasDigitos = (valor || '').replace(/\D/g, '').slice(0, 11)
@@ -17,6 +47,33 @@ function aplicarMascaraTelefone(valor) {
   if (resto.length <= 5) return `(${ddd}) ${resto.slice(0, 5)}`
   if (resto.length <= 8) return `(${ddd}) ${resto.slice(0, 4)}-${resto.slice(4)}`
   return `(${ddd}) ${resto.slice(0, 5)}-${resto.slice(5, 9)}`
+}
+
+function aplicarMascaraCpf(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '').slice(0, 11)
+  if (digitos.length <= 3) return digitos
+  if (digitos.length <= 6) return `${digitos.slice(0, 3)}.${digitos.slice(3)}`
+  if (digitos.length <= 9) return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6)}`
+  return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6, 9)}-${digitos.slice(9)}`
+}
+
+function aplicarMascaraCep(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '').slice(0, 8)
+  return digitos.length > 5 ? `${digitos.slice(0, 5)}-${digitos.slice(5)}` : digitos
+}
+
+function formatarCidade(valor) {
+  return String(valor || '').replace(/\s+/g, ' ').replace(/^\s+/, '').replace(/\b\w/g, (letra) => letra.toUpperCase())
+}
+
+function normalizarBusca(campo, valor) {
+  if (campo === 'registro') return String(valor || '').replace(/\D/g, '')
+  if (campo === 'telefone') return aplicarMascaraTelefone(valor)
+  if (campo === 'cpf') return aplicarMascaraCpf(valor)
+  if (campo === 'cep') return aplicarMascaraCep(valor)
+  if (campo === 'estado') return String(valor || '').replace(/[^a-z]/gi, '').slice(0, 2).toUpperCase()
+  if (campo === 'cidade') return formatarCidade(valor)
+  return valor
 }
 
 function validarEmail(email) {
@@ -57,6 +114,11 @@ function mensagemErro(error) {
   return error?.message || 'Ocorreu um erro inesperado.'
 }
 
+function nomeComRegistro(cliente) {
+  const registro = Number(cliente?.numeroRegistro)
+  return Number.isInteger(registro) && registro > 0 ? `#${registro} ${cliente.nome || ''}`.trim() : (cliente.nome || '')
+}
+
 function aplicarErroDuplicidade(error, setErrosCampos, setErro) {
   const mensagem = error?.message || ''
   const temEmailDuplicado = /e[- ]?mail/i.test(mensagem)
@@ -84,12 +146,14 @@ export default function AdminClientes() {
   const [clientes, setClientes] = useState([])
   const [clienteEditando, setClienteEditando] = useState(null)
   const [clienteVisualizado, setClienteVisualizado] = useState(null)
+  const [pedidosCliente, setPedidosCliente] = useState([])
+  const [carregandoPedidos, setCarregandoPedidos] = useState(false)
+  const [erroPedidos, setErroPedidos] = useState('')
   const [formulario, setFormulario] = useState(formularioInicial)
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [inativandoId, setInativandoId] = useState(null)
-  const [tipoBusca, setTipoBusca] = useState('Nome')
-  const [valorBusca, setValorBusca] = useState('')
+  const [filtrosBusca, setFiltrosBusca] = useState(filtrosIniciais)
   const [statusFiltro, setStatusFiltro] = useState('Todos')
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
@@ -106,6 +170,7 @@ export default function AdminClientes() {
     if (campo === 'telefone') {
       setErrosCampos((atual) => ({ ...atual, telefone: validarTelefone(proximo.telefone) }))
     }
+    if (campo === 'dataNascimento') setErrosCampos((atual) => ({ ...atual, dataNascimento: validarDataNascimento(proximo.dataNascimento) }))
   }
 
   function validarFormulario(dados) {
@@ -131,7 +196,7 @@ export default function AdminClientes() {
         ? await clienteService.buscarClientes(filtros)
         : await clienteService.listarClientes()
 
-      setClientes(Array.isArray(resultado) ? resultado : [])
+      setClientes(clientesVisiveis(Array.isArray(resultado) ? resultado : []))
     } catch (error) {
       setErro(mensagemErro(error))
       setClientes([])
@@ -142,9 +207,8 @@ export default function AdminClientes() {
 
   async function pesquisarClientes(event) {
     event?.preventDefault()
-    const valor = valorBusca.trim()
-
-    if (!valor) {
+    const filtros = Object.fromEntries(Object.entries(filtrosBusca).map(([campo, valor]) => [campo, String(valor || '').trim()]).filter(([, valor]) => valor))
+    if (!Object.keys(filtros).length) {
       await carregarClientes()
       return
     }
@@ -153,17 +217,8 @@ export default function AdminClientes() {
       setCarregando(true)
       setErro('')
 
-      let resultado = []
-      if (tipoBusca === 'ID') {
-        const cliente = await clienteService.buscarClientePorId(Number(valor))
-        resultado = cliente ? [cliente] : []
-      } else if (tipoBusca === 'Nome') {
-        resultado = await clienteService.buscarClientes({ nome: valor })
-      } else {
-        resultado = await clienteService.buscarClientes({ email: valor })
-      }
-
-      setClientes(Array.isArray(resultado) ? resultado : [])
+      const resultado = await clienteService.buscarClientes(filtros)
+      setClientes(clientesVisiveis(Array.isArray(resultado) ? resultado : []))
     } catch (error) {
       setErro(mensagemErro(error))
       setClientes([])
@@ -172,43 +227,8 @@ export default function AdminClientes() {
     }
   }
 
-  useEffect(() => {
-    const valor = valorBusca.trim()
-    if (!valor) {
-      carregarClientes()
-      return
-    }
-
-    const timer = setTimeout(async () => {
-      try {
-        setCarregando(true)
-        setErro('')
-
-        let resultado = []
-        if (tipoBusca === 'ID') {
-          const cliente = await clienteService.buscarClientePorId(Number(valor))
-          resultado = cliente ? [cliente] : []
-        } else if (tipoBusca === 'Nome') {
-          resultado = await clienteService.buscarClientes({ nome: valor })
-        } else {
-          resultado = await clienteService.buscarClientes({ email: valor })
-        }
-
-        setClientes(Array.isArray(resultado) ? resultado : [])
-      } catch (error) {
-        setErro(mensagemErro(error))
-        setClientes([])
-      } finally {
-        setCarregando(false)
-      }
-    }, 250)
-
-    return () => clearTimeout(timer)
-  }, [tipoBusca, valorBusca])
-
   function limparFiltros() {
-    setTipoBusca('Nome')
-    setValorBusca('')
+    setFiltrosBusca(filtrosIniciais)
     setStatusFiltro('Todos')
     carregarClientes()
   }
@@ -222,11 +242,30 @@ export default function AdminClientes() {
     setFormulario({
       nome: cliente.nome || '',
       email: cliente.email || '',
+      cpf: cliente.cpf || '',
       telefone: cliente.telefone || '',
+      dataNascimento: cliente.dataNascimento || '',
+      genero: cliente.genero || '',
     })
     setErrosCampos({})
     setErro('')
     setSucesso('')
+  }
+
+  async function visualizarCliente(cliente) {
+    setClienteVisualizado(cliente)
+    setPedidosCliente([])
+    setErroPedidos('')
+    setCarregandoPedidos(true)
+    try {
+      const resposta = await listarMeusPedidos(cliente.id)
+      const lista = resposta?.data || resposta
+      setPedidosCliente(Array.isArray(lista) ? lista : [])
+    } catch (error) {
+      setErroPedidos(error?.mensagem || error?.message || 'Não foi possível carregar as compras deste cliente.')
+    } finally {
+      setCarregandoPedidos(false)
+    }
   }
 
   async function salvarEdicao(event) {
@@ -236,13 +275,19 @@ export default function AdminClientes() {
     const payload = {
       nome: formulario.nome.trim(),
       email: formulario.email.trim(),
+      cpf: formulario.cpf.replace(/\D/g, ''),
       telefone: formulario.telefone.trim(),
+      dataNascimento: formulario.dataNascimento,
+      genero: formulario.genero,
     }
 
     if (!payload.nome) {
       setErro('Preencha o nome do cliente.')
       return
     }
+
+    const erroData = validarDataNascimento(payload.dataNascimento)
+    if (erroData) { setErrosCampos((atual) => ({ ...atual, dataNascimento: erroData })); setErro(erroData); return }
 
     if (!validarFormulario(payload)) {
       setErro('Corrija os campos inválidos antes de salvar.')
@@ -261,7 +306,9 @@ export default function AdminClientes() {
       setErrosCampos({})
       setSucesso('Cliente atualizado com sucesso.')
     } catch (error) {
-      aplicarErroDuplicidade(error, setErrosCampos, setErro)
+      const errosBackend = error?.details?.erros || error?.erros || {}
+      setErrosCampos(errosBackend)
+      setErro(Object.keys(errosBackend).length ? 'Corrija os campos indicados.' : mensagemErro(error))
     } finally {
       setSalvando(false)
     }
@@ -275,8 +322,8 @@ export default function AdminClientes() {
     setSucesso('')
 
     try {
-      await clienteService.inativarCliente(cliente.id)
-      setClientes((atuais) => atuais.map((item) => (item.id === cliente.id ? { ...item, ativo: false } : item)))
+      const resposta = await clienteService.inativarCliente(cliente.id)
+      setClientes((atuais) => atuais.map((item) => (item.id === cliente.id ? { ...item, ...(resposta || {}), ativo: false } : item)))
       setSucesso('Cliente inativado com sucesso.')
     } catch (error) {
       setErro(mensagemErro(error))
@@ -286,16 +333,10 @@ export default function AdminClientes() {
   }
 
   const clientesFiltrados = clientes.filter((cliente) => {
-    const status = cliente.ativo ? 'Ativo' : 'Inativo'
+    const status = cliente.ativo ? 'Ativo' : contaExcluida(cliente) ? 'Conta inativa' : 'Outro bloqueio'
     if (statusFiltro !== 'Todos' && status !== statusFiltro) return false
     return true
   })
-
-  const placeholder = {
-    ID: 'Digite o ID do cliente',
-    Nome: 'Digite o nome do cliente',
-    'E-mail': 'Digite o e-mail do cliente',
-  }[tipoBusca]
 
   return (
     <div className="admin-layout">
@@ -313,34 +354,22 @@ export default function AdminClientes() {
             </div>
           )}
 
-          <form onSubmit={pesquisarClientes} className="card" style={{ padding: '16px 20px', marginBottom: 20, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <select value={tipoBusca} onChange={(event) => setTipoBusca(event.target.value)} className="input-field" style={{ width: 140, minWidth: 140, flex: '0 0 140px' }}>
-              <option>ID</option>
-              <option>Nome</option>
-              <option>E-mail</option>
-            </select>
+          <form onSubmit={pesquisarClientes} className="card admin-client-filters" style={{ padding: '16px 20px', marginBottom: 20, display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 12, alignItems: 'end' }}>
+            {camposBusca.map(([campo, label]) => <label key={campo} className="label" style={{ display: 'flex', flexDirection: 'column', gap: 6, minHeight: 74 }}><span style={{ minHeight: 30, display: 'block' }}>{label}</span><input className="input-field" type={campo === 'dataNascimento' ? 'date' : 'text'} max={campo === 'dataNascimento' ? dataMaximaNascimento() : undefined} value={filtrosBusca[campo]} onChange={(event) => setFiltrosBusca((atual) => ({ ...atual, [campo]: normalizarBusca(campo, event.target.value) }))} /></label>)}
 
-            <input
-              value={valorBusca}
-              onChange={(event) => setValorBusca(event.target.value)}
-              placeholder={placeholder}
-              className="input-field"
-              style={{ flex: '1 1 220px', minWidth: 160 }}
-            />
-
-            <button type="submit" className="btn-primary" disabled={carregando || salvando}>
+            <button type="submit" className="btn-primary" disabled={carregando || salvando} style={{ width: '100%',marginBottom: 6, height: 42, alignSelf: 'end', boxSizing: 'border-box' }}>
               Buscar
             </button>
-
-            <button type="button" className="btn-secondary" onClick={limparFiltros} disabled={carregando || salvando}>
+            <button type="button" className="btn-secondary" onClick={limparFiltros} disabled={carregando || salvando} style={{ width: '100%', marginBottom: 6, height: 42, alignSelf: 'end', boxSizing: 'border-box' }}>
               Limpar filtros
             </button>
-
-            {['Todos', 'Ativo', 'Inativo'].map((status) => (
-              <button key={status} type="button" onClick={() => setStatusFiltro(status)} style={{ padding: '7px 16px', borderRadius: 24, border: `1.5px solid ${statusFiltro === status ? 'var(--primary)' : '#E5E7EB'}`, background: statusFiltro === status ? 'var(--primary)' : '#fff', color: statusFiltro === status ? '#fff' : 'var(--text)', fontSize: 13, cursor: 'pointer' }}>
-                {status}
-              </button>
-            ))}
+            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {['Todos', 'Ativo', 'Conta inativa', 'Outro bloqueio'].map((status) => (
+                <button key={status} type="button" onClick={() => setStatusFiltro(status)} style={{ width: 180, height: 42, padding: '7px 16px', borderRadius: 24, border: `1.5px solid ${statusFiltro === status ? 'var(--primary)' : '#E5E7EB'}`, background: statusFiltro === status ? 'var(--primary)' : '#fff', color: statusFiltro === status ? '#fff' : 'var(--text)', fontSize: 13, cursor: 'pointer', boxSizing: 'border-box' }}>
+                  {status}
+                </button>
+              ))}
+            </div>
           </form>
 
           <div className="card" style={{ overflowX: 'auto' }}>
@@ -350,19 +379,20 @@ export default function AdminClientes() {
                   <th>Cliente</th>
                   <th>E-mail</th>
                   <th>Status</th>
+                  <th>Exclusão</th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {carregando && (
                   <tr>
-                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Carregando clientes...</td>
+                    <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Carregando clientes...</td>
                   </tr>
                 )}
 
                 {!carregando && clientesFiltrados.length === 0 && (
                   <tr>
-                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum cliente encontrado.</td>
+                    <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum cliente encontrado.</td>
                   </tr>
                 )}
 
@@ -370,20 +400,19 @@ export default function AdminClientes() {
                   <tr key={cliente.id}>
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <strong>{cliente.nome}</strong>
+                        <strong>{nomeComRegistro(cliente)}</strong>
                         <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{cliente.telefone || 'Sem telefone'}</span>
                       </div>
                     </td>
                     <td>{cliente.email}</td>
-                    <td>
-                      <span className={`badge ${cliente.ativo ? 'badge-green' : 'badge-gray'}`}>{cliente.ativo ? 'Ativo' : 'Inativo'}</span>
-                    </td>
+                    <td><span className={`badge ${cliente.ativo ? 'badge-green' : 'badge-gray'}`}>{cliente.ativo ? 'Ativo' : contaExcluida(cliente) ? 'Conta inativa por exclusão do cliente' : 'Outro bloqueio'}</span></td>
+                    <td>{contaExcluida(cliente) ? <span style={{ fontSize: 12 }}>{formatarData(cliente.dataExclusao)}<br />Remoção: {formatarData(cliente.dataRemocaoDefinitiva)}<br />{diasRestantes(cliente)} dia(s) restante(s)</span> : '—'}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <button className="btn-secondary" onClick={() => setClienteVisualizado(cliente)} style={{ padding: '5px 10px', fontSize: 12 }}>
+                        <button className="btn-secondary" onClick={() => visualizarCliente(cliente)} style={{ padding: '5px 10px', fontSize: 12 }}>
                           Ver
                         </button>
-                        <button className="btn-secondary" onClick={() => abrirEdicao(cliente)} style={{ padding: '5px 10px', fontSize: 12 }}>
+                        <button className="btn-secondary" disabled={!cliente.ativo} onClick={() => abrirEdicao(cliente)} style={{ padding: '5px 10px', fontSize: 12 }}>
                           Editar
                         </button>
                         {cliente.ativo && (
@@ -403,13 +432,15 @@ export default function AdminClientes() {
             <div className="card" style={{ padding: 20, marginTop: 20 }}>
               <h2 style={{ margin: '0 0 16px', fontSize: 17 }}>Editar cliente</h2>
               <form onSubmit={salvarEdicao} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-                {['nome', 'email', 'telefone'].map((campo) => (
+                {['nome', 'email', 'cpf', 'telefone', 'dataNascimento', 'genero'].map((campo) => (
                   <label key={campo} className="label" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {campo === 'nome' ? 'Nome' : campo === 'email' ? 'E-mail' : 'Telefone'}
+                    {campo === 'nome' ? 'Nome' : campo === 'email' ? 'E-mail' : campo === 'cpf' ? 'CPF' : campo === 'telefone' ? 'Telefone' : campo === 'dataNascimento' ? 'Data de nascimento' : 'Gênero'}
                     <input
                       className="input-field"
+                      type={campo === 'dataNascimento' ? 'date' : 'text'}
+                      max={campo === 'dataNascimento' ? dataMaximaNascimento() : undefined}
                       value={formulario[campo]}
-                      onChange={(event) => atualizarFormulario(campo, event.target.value)}
+                      onChange={(event) => atualizarFormulario(campo, campo === 'cpf' ? event.target.value.replace(/\D/g, '') : event.target.value)}
                       autoComplete={campo === 'email' ? 'email' : 'off'}
                       style={{ borderColor: errosCampos[campo] ? '#DC2626' : undefined }}
                     />
@@ -432,13 +463,25 @@ export default function AdminClientes() {
           )}
 
           {clienteVisualizado && (
-            <div role="dialog" aria-modal="true" className="card" style={{ position: 'fixed', inset: 20, maxWidth: 460, height: 'fit-content', margin: 'auto', padding: 24, zIndex: 200, boxShadow: 'var(--shadow-lg)' }}>
+            <div role="dialog" aria-modal="true" className="card" style={{ position: 'fixed', inset: 20, maxWidth: 760, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', height: 'fit-content', margin: 'auto', padding: 24, zIndex: 200, boxShadow: 'var(--shadow-lg)' }}>
               <h2 style={{ margin: '0 0 16px', fontSize: 18 }}>Dados do cliente</h2>
+              <p><strong>Registro:</strong> {Number.isInteger(Number(clienteVisualizado.numeroRegistro)) ? `#${clienteVisualizado.numeroRegistro}` : '—'}</p>
+              <p><strong>UUID:</strong> {clienteVisualizado.uuid || '—'}</p>
               <p><strong>Nome:</strong> {clienteVisualizado.nome}</p>
               <p><strong>E-mail:</strong> {clienteVisualizado.email}</p>
               <p><strong>Telefone:</strong> {clienteVisualizado.telefone || '-'}</p>
+              <p><strong>CPF:</strong> {clienteVisualizado.cpf || '-'}</p>
+              <p><strong>Data de nascimento:</strong> {formatarData(clienteVisualizado.dataNascimento)}</p>
+              <p><strong>Gênero:</strong> {clienteVisualizado.genero || '-'}</p>
+              <p><strong>Cidade:</strong> {clienteVisualizado.cidade || clienteVisualizado.endereco?.cidade || '-'}</p>
+              <p><strong>Estado:</strong> {clienteVisualizado.estado || clienteVisualizado.endereco?.estado || '-'}</p>
               <p><strong>Data de cadastro:</strong> {formatarData(clienteVisualizado.dataCadastro)}</p>
               <p><strong>Status:</strong> {clienteVisualizado.ativo ? 'Ativo' : 'Inativo'}</p>
+              <h3 style={{ margin: '24px 0 12px', fontSize: 16 }}>Compras realizadas</h3>
+              {carregandoPedidos && <p style={{ color: 'var(--text-muted)' }}>Carregando compras...</p>}
+              {erroPedidos && <p role="alert" style={{ color: '#991B1B' }}>{erroPedidos}</p>}
+              {!carregandoPedidos && !erroPedidos && pedidosCliente.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nenhuma compra encontrada para este cliente.</p>}
+              {!carregandoPedidos && !erroPedidos && pedidosCliente.length > 0 && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{pedidosCliente.map((pedido) => <div key={pedido.id} style={{ border: '1px solid #E5E7EB', borderRadius: 8, padding: 12, display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, alignItems: 'center' }}><div><strong>Pedido #{pedido.id}</strong><small style={{ display: 'block', color: 'var(--text-muted)' }}>{formatarData(pedido.criadoEm || pedido.dataCriacao || pedido.dataPedido || pedido.createdAt)}</small></div><span className="badge badge-gray">{textoStatusPedido(pedido.status)}</span><strong>R$ {Number(pedido.total || 0).toFixed(2).replace('.', ',')}</strong></div>)}</div>}
               <button className="btn-secondary" onClick={() => setClienteVisualizado(null)}>Fechar</button>
             </div>
           )}

@@ -6,7 +6,10 @@ export class ApiError extends Error {
     this.name = 'ApiError'
     this.status = status
     this.details = details
+    this.erro = details?.erro || 'Erro'
     this.erros = details?.erros || {}
+    this.caminho = details?.caminho || ''
+    this.timestamp = details?.timestamp || null
   }
 }
 
@@ -37,38 +40,11 @@ async function request(method, path, body, params = null) {
 
   if (res.status === 204) return null
 
-  const contentType = res.headers.get('content-type') || ''
-  let payload = null
-
-  if (contentType.includes('application/json')) {
-    try {
-      payload = await res.json()
-    } catch {
-      payload = null
-    }
-  }
+  const payload = await res.json().catch(() => ({}))
 
   if (!res.ok) {
-    const mensagem = payload?.mensagem || 'Não foi possível realizar esta operação.'
-    const detalhes = payload || {}
-
-    if (res.status === 404) {
-      throw new ApiError('Registro não encontrado.', 404, detalhes)
-    }
-
-    if (res.status === 409) {
-      throw new ApiError('Não foi possível concluir a operação.', 409, detalhes)
-    }
-
-    if (res.status === 400) {
-      throw new ApiError(mensagem, 400, detalhes)
-    }
-
-    if (res.status === 500) {
-      throw new ApiError('Ocorreu um erro inesperado.', 500, detalhes)
-    }
-
-    throw new ApiError(mensagem, res.status, detalhes)
+    const detalhes = payload && typeof payload === 'object' ? payload : {}
+    throw new ApiError(detalhes.mensagem || 'Não foi possível realizar esta operação.', res.status, detalhes)
   }
 
   return payload

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { buildLivroPayload, getInitialLivroForm, validarLivroForm } from '../utils/livroFormatters'
+import { erroDoCampo, normalizarErrosDeCampo } from '@/shared/api/errorUtils'
 
 export default function LivroForm({ initialValues, onSubmit, onCancel, isEditing = false, isSubmitting = false, apiErrors = {}, opcoes = {}, opcoesCarregando = false }) {
   const [form, setForm] = useState(getInitialLivroForm(initialValues))
@@ -17,7 +18,7 @@ export default function LivroForm({ initialValues, onSubmit, onCancel, isEditing
   }, [initialValues])
 
   useEffect(() => {
-    setErros(apiErrors || {})
+    setErros(normalizarErrosDeCampo(apiErrors || {}))
   }, [apiErrors])
 
   const categoriasSelecionadas = useMemo(
@@ -71,11 +72,17 @@ export default function LivroForm({ initialValues, onSubmit, onCancel, isEditing
     await onSubmit(payload)
   }
 
-  const inputClassName = (fieldName) => `input-field ${erros[fieldName] ? 'field-error' : ''}`
+  const inputClassName = (fieldName) => `input-field ${erroDoCampo(erros, fieldName) ? 'field-error' : ''}`
+  const erroCampo = (fieldName) => erroDoCampo(erros, fieldName)
 
   return (
     <form onSubmit={handleSubmit} noValidate>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {erroCampo('livroCadastro') && (
+          <div role="alert" style={{ padding: '12px 14px', color: '#991B1B', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8 }}>
+            {erroCampo('livroCadastro')}
+          </div>
+        )}
         <section className="card" style={{ padding: 24 }}>
           <h2 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Informações principais</h2>
 
@@ -89,7 +96,7 @@ export default function LivroForm({ initialValues, onSubmit, onCancel, isEditing
                 placeholder="LIV-001"
                 maxLength={50}
               />
-              {erros.codigo && <small style={{ color: 'var(--danger)', display: 'block', marginTop: 6 }}>{erros.codigo}</small>}
+              {erroCampo('codigo') && <small style={{ color: 'var(--danger)', display: 'block', marginTop: 6 }}>{erroCampo('codigo')}</small>}
             </div>
 
             <div>

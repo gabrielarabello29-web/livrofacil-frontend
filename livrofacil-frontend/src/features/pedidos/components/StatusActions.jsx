@@ -1,5 +1,6 @@
+import React from 'react'
 import { useState } from 'react'
-import { vendaService } from '../services/vendaService'
+import { vendaService } from '@/features/vendas/api/vendaService'
 
 const TRANSITIONS = {
   'Em aberto': ['Em processamento'],

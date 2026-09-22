@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api } from '@/shared/api/api'
 
 export const cupomService = {
   // lista cupons (admin or user)

@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api } from '@/shared/api/api'
 
 export const trocaService = {
   solicitarTroca: async (data) => api.post('/trocas', data),

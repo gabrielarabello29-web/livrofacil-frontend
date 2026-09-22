@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import AdminSidebar from '../../components/AdminSidebar'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 const dados_mes = [

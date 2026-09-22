@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import AdminSidebar from '../../components/AdminSidebar'
-import LivroCover from '../../features/livros/components/LivroCover'
-import { buscarEstoque, listarLivros } from '../../features/livros/api/livrosApi'
-import { normalizarLivroDaApi } from '../../features/livros/utils/livroFormatters'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
+import LivroCover from '@/features/livros/components/LivroCover'
+import { buscarEstoque, listarLivros } from '@/features/livros/api/livrosApi'
+import { normalizarLivroDaApi } from '@/features/livros/utils/livroFormatters'
 
 export default function AdminEstoque() {
   const [livros, setLivros] = useState([])

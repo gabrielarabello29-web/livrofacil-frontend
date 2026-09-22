@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Header from '../../components/Header'
-import Footer from '../../components/Footer'
-import ClienteSidebar from '../../components/ClienteSidebar'
-import { cupomService } from '../../services/cupomService'
-import { useAuth } from '../../context/AuthContext'
+import Header from '@/shared/components/Header'
+import Footer from '@/shared/components/Footer'
+import ClienteSidebar from '@/shared/layouts/cliente/ClienteSidebar'
+import { cupomService } from '@/features/cupom/api/cupomService'
+import { useAuth } from '@/features/auth/context/AuthContext'
 
 export default function Cupons() {
   const [cupons, setCupons] = useState([])

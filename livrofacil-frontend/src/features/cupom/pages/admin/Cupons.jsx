@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import AdminSidebar from '../../components/AdminSidebar'
-import Modal from '../../components/Modal'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
+import Modal from '@/shared/components/Modal'
 
 const cupons_inicial = [
   { id: 1, codigo: 'BEMVINDO10', tipo: 'Promocional', desconto: '10%', validade: '31/03/2025', utilizacao: '145/∞', status: 'Ativo' },

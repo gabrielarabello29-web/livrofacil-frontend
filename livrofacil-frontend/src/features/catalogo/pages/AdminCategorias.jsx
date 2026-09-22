@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import AdminSidebar from '../../components/AdminSidebar'
-import { listarCategorias, listarLivros } from '../../features/livros/api/livrosApi'
-import { normalizarLivroDaApi } from '../../features/livros/utils/livroFormatters'
+import AdminSidebar from '@/shared/layouts/admin/AdminSidebar'
+import { listarCategorias, listarLivros } from '@/features/livros/api/livrosApi'
+import { normalizarLivroDaApi } from '@/features/livros/utils/livroFormatters'
 
 export default function AdminCategorias() {
   const [categorias, setCategorias] = useState([])
