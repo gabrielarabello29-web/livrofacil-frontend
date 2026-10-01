@@ -19,7 +19,15 @@ describe('CheckoutChrome', () => {
   it('exibe o resumo do carrinho e do pedido', () => {
     render(<MemoryRouter><CheckoutSummary pedido={{ valorTotal: 40 }} /></MemoryRouter>)
     expect(screen.getByText('R$ 35,00')).toBeInTheDocument()
+    expect(screen.getByText('Frete')).toBeInTheDocument()
+    expect(screen.getByText('R$ 5,00')).toBeInTheDocument()
     expect(screen.getByText('R$ 40,00')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Voltar ao carrinho' })).toHaveAttribute('href', '/carrinho')
+  })
+
+  it('calcula e exibe o frete quando ainda não há pedido iniciado', () => {
+    render(<MemoryRouter><CheckoutSummary /></MemoryRouter>)
+    expect(screen.getByText('R$ 19,90')).toBeInTheDocument()
+    expect(screen.getByText('R$ 54,90')).toBeInTheDocument()
   })
 })
