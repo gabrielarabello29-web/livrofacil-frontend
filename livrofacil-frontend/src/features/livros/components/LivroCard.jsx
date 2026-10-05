@@ -6,9 +6,10 @@ import LivroCover from '@/features/livros/components/LivroCover'
 import FavoriteButton from '@/features/favoritos/components/FavoriteButton'
 
 export default function LivroCard({ livro }) {
-  const { itens, adicionarItem, operando } = useCarrinho()
+  const { itens, adicionarItem } = useCarrinho()
   const [adicionado, setAdicionado] = useState(false)
   const [erro, setErro] = useState('')
+  const [processando, setProcessando] = useState(false)
   const jaNoCarrinho = itens.some((item) => {
     const itemLivroId = item.livroId ?? item.produtoId ?? item.livro?.id
     return itemLivroId !== undefined && String(itemLivroId) === String(livro.id)
@@ -17,14 +18,17 @@ export default function LivroCard({ livro }) {
   async function handleAdicionar(e) {
     e.preventDefault()
     e.stopPropagation()
-    if (jaNoCarrinho || operando) return
+    if (processando) return
     setErro('')
+    setProcessando(true)
     try {
       await adicionarItem(livro)
       setAdicionado(true)
       setTimeout(() => setAdicionado(false), 1500)
     } catch (error) {
       setErro(error?.mensagem || 'Não foi possível adicionar o livro.')
+    } finally {
+      setProcessando(false)
     }
   }
 
@@ -52,8 +56,8 @@ export default function LivroCard({ livro }) {
       </Link>
 
       <div style={{ padding: '0 14px 14px' }}>
-        <button type="button" onClick={handleAdicionar} disabled={jaNoCarrinho || operando} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '8px 16px', fontSize: 13, background: jaNoCarrinho ? '#10B981' : adicionado ? '#10B981' : 'var(--primary)' }}>
-          {jaNoCarrinho ? 'No carrinho' : operando ? 'Adicionando...' : adicionado ? (
+        <button type="button" onClick={handleAdicionar} disabled={processando} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '8px 16px', fontSize: 13, background: adicionado ? '#10B981' : 'var(--primary)' }}>
+          {processando ? 'Adicionando...' : adicionado ? (
             <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Adicionado!</>
           ) : (
             <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Adicionar</>

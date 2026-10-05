@@ -6,6 +6,9 @@ import ClienteSidebar from '@/shared/layouts/cliente/ClienteSidebar'
 import { obterClienteId, useAuth } from '@/features/auth/context/AuthContext'
 import { listarMeusPedidos } from '@/features/checkout/api/checkoutApi'
 import { trocaService } from '@/features/troca/api/trocaService'
+import { enriquecerItensComLivros, obterItensPedido } from '@/features/pedidos/utils/pedidoUtils'
+
+const statusPedidoElegivel = new Set(['ENTREGUE', 'FINALIZADO'])
 
 export default function SolicitarTroca() {
   const { usuario } = useAuth()
@@ -28,12 +31,25 @@ export default function SolicitarTroca() {
     }
     let ativo = true
     listarMeusPedidos(clienteId)
-      .then((resposta) => {
-        const lista = Array.isArray(resposta) ? resposta : resposta?.data || []
-        if (ativo) setPedidos(lista.filter((item) => String(item.status).toUpperCase() === 'ENTREGUE'))
+      .then(async (resposta) => {
+        const lista = Array.isArray(resposta)
+          ? resposta
+          : Array.isArray(resposta?.data)
+            ? resposta.data
+            : Array.isArray(resposta?.pedidos)
+              ? resposta.pedidos
+              : []
+        const elegiveis = lista.filter((item) =>
+          statusPedidoElegivel.has(String(item?.status || '').trim().toUpperCase()),
+        )
+        const pedidosComLivros = await Promise.all(elegiveis.map(async (pedido) => ({
+          ...pedido,
+          itens: await enriquecerItensComLivros(obterItensPedido(pedido)),
+        })))
+        if (ativo) setPedidos(pedidosComLivros)
       })
       .catch((error) => {
-        if (ativo) setErro(error?.mensagem || 'Não foi possível carregar os pedidos entregues.')
+        if (ativo) setErro(error?.mensagem || 'Não foi possível carregar os pedidos concluídos.')
       })
       .finally(() => {
         if (ativo) setCarregando(false)
@@ -42,10 +58,10 @@ export default function SolicitarTroca() {
   }, [clienteId])
 
   const pedidoSelecionado = pedidos.find((item) => String(item.id) === String(pedidoId))
-  const itens = Array.isArray(pedidoSelecionado?.itens) ? pedidoSelecionado.itens : []
+  const itens = obterItensPedido(pedidoSelecionado)
 
   function referenciaProduto(item) {
-    const itemPedidoId = item.itemPedidoId
+    const itemPedidoId = item.itemPedidoId ?? item.id
     if (itemPedidoId !== null && itemPedidoId !== undefined) return `itemPedidoId:${itemPedidoId}`
     const livroId = item.livroId ?? item.livro?.id
     return livroId !== null && livroId !== undefined ? `livroId:${livroId}` : ''
@@ -54,7 +70,7 @@ export default function SolicitarTroca() {
   async function enviarSolicitacao(event) {
     event.preventDefault()
     if (!clienteId || !pedidoSelecionado || !produto || !motivo) {
-      setErro('Selecione um pedido entregue, um livro e o motivo da troca.')
+      setErro('Selecione um pedido concluído, um livro e o motivo da troca.')
       return
     }
     const [campoProduto, idProduto] = produto.split(':')
@@ -93,24 +109,25 @@ export default function SolicitarTroca() {
             <form className="card" onSubmit={enviarSolicitacao} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
               <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, fontWeight: 600 }}>
                 Pedido
-                <select required value={pedidoId} onChange={(event) => { setPedidoId(event.target.value); setProduto('') }} disabled={carregando || pedidos.length === 0}>
-                  <option value="">{carregando ? 'Carregando pedidos...' : 'Selecione um pedido entregue'}</option>
-                  {pedidos.map((item) => <option key={item.id} value={item.id}>Pedido #{item.id}</option>)}
+                <select required data-testid="troca-pedido" value={pedidoId} onChange={(event) => { setPedidoId(event.target.value); setProduto('') }} disabled={carregando || pedidos.length === 0}>
+                  <option value="">{carregando ? 'Carregando pedidos...' : 'Selecione um pedido concluído'}</option>
+                  {pedidos.map((item) => <option key={item.id} value={item.id}>Pedido #{item.id} · {String(item.status).toLowerCase() === 'finalizado' ? 'Finalizado' : 'Entregue'}</option>)}
                 </select>
+                {!carregando && !erro && pedidos.length === 0 && <small role="status">Nenhum pedido concluído disponível para solicitar troca.</small>}
               </label>
               <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, fontWeight: 600 }}>
                 Produto
-                <select required value={produto} onChange={(event) => setProduto(event.target.value)} disabled={!pedidoSelecionado || itens.length === 0}>
+                <select required data-testid="troca-item" value={produto} onChange={(event) => setProduto(event.target.value)} disabled={!pedidoSelecionado || itens.length === 0}>
                   <option value="">Selecione um item do pedido</option>
                   {itens.map((item, index) => {
                     const referencia = referenciaProduto(item)
-                    return <option key={referencia || index} value={referencia}>{item.titulo || item.livro?.titulo || `Livro ${item.livroId || ''}`} · qtd. {item.quantidade || 1}</option>
+                    return <option key={referencia || index} value={referencia}>{item.titulo || item.livro?.titulo || 'Título não informado'} · qtd. {item.quantidade || 1}</option>
                   })}
                 </select>
               </label>
               <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, fontWeight: 600 }}>
                 Motivo
-                <select required value={motivo} onChange={event => setMotivo(event.target.value)}>
+                <select required data-testid="troca-motivo" value={motivo} onChange={event => setMotivo(event.target.value)}>
                   <option value="">Selecione um motivo</option>
                   <option>Produto danificado</option>
                   <option>Produto incorreto</option>
@@ -125,7 +142,7 @@ export default function SolicitarTroca() {
               {erro && <div role="alert" className="checkout-error">{erro}</div>}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
                 <Link to="/trocas" className="btn-secondary">Cancelar</Link>
-                <button type="submit" className="btn-primary" disabled={enviando || carregando || pedidos.length === 0}>{enviando ? 'Enviando...' : 'Enviar solicitação'}</button>
+                <button type="submit" data-testid="enviar-solicitacao-troca" className="btn-primary" disabled={enviando || carregando || pedidos.length === 0}>{enviando ? 'Enviando...' : 'Enviar solicitação'}</button>
               </div>
             </form>
           </div>

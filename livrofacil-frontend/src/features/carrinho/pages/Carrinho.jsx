@@ -65,13 +65,17 @@ function mascararCep(valor) {
 
 const enderecoVazio = {
   tipoEndereco: "",
+  tipoResidencia: "",
   logradouro: "",
+  tipoLogradouro: "",
   numero: "",
   complemento: "",
   bairro: "",
   cidade: "",
   estado: "",
   cep: "",
+  pais: "",
+  observacoes: "",
   principal: false,
 }
 
@@ -97,7 +101,9 @@ export default function Carrinho() {
 
   const [limpandoCheckout, setLimpandoCheckout] = useState(false)
 
-  const frete = subtotal > 150 ? 0 : 19.9
+  // O frete é calculado pelo backend quando o pedido é iniciado e pode variar
+  // conforme o subtotal e o endereço de entrega. Não calcular localmente.
+  const frete = null
 
   useEffect(() => {
     if (!clienteId) return
@@ -201,12 +207,18 @@ export default function Carrinho() {
     setErroEndereco("")
 
     try {
-      const payload = Object.fromEntries(
-        Object.entries(enderecoForm).map(([campo, valor]) => [
-          campo,
-          typeof valor === "string" ? valor.trim() : valor,
-        ]),
-      )
+      const payload = {
+        ...enderecoForm,
+        tipoEndereco: String(enderecoForm.tipoEndereco || enderecoForm.tipoResidencia || "").trim(),
+        tipoResidencia: String(enderecoForm.tipoResidencia || enderecoForm.tipoEndereco || "").trim(),
+        logradouro: String(enderecoForm.logradouro || enderecoForm.tipoLogradouro || "").trim(),
+        tipoLogradouro: String(enderecoForm.tipoLogradouro || enderecoForm.logradouro || "").trim(),
+        estado: String(enderecoForm.estado || "").trim().toUpperCase(),
+        cep: String(enderecoForm.cep || "").trim(),
+        pais: String(enderecoForm.pais || "").trim(),
+        observacoes: String(enderecoForm.observacoes || "").trim(),
+        principal: Boolean(enderecoForm.principal),
+      }
 
       const enderecoCriado = await enderecoService.criarEndereco(
         clienteId,
@@ -319,16 +331,14 @@ export default function Carrinho() {
                   <div>
                     <span>Frete</span>
                     <strong>
-                      {frete === 0
-                        ? "Grátis"
-                        : `R$ ${frete.toFixed(2).replace(".", ",")}`}
+                      {frete == null ? "A calcular" : `R$ ${Number(frete).toFixed(2).replace(".", ",")}`}
                     </strong>
                   </div>
                 </div>
                 <div className="summary-total">
                   <span>Total</span>
                   <strong>
-                    R$ {(subtotal + frete).toFixed(2).replace(".", ",")}
+                    R$ {Number(subtotal).toFixed(2).replace(".", ",")}
                   </strong>
                 </div>
                 <button
@@ -460,6 +470,26 @@ export default function Carrinho() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+          <div className="cart-address-grid">
+            <div>
+              <label className="label">País</label>
+              <input
+                className="input-field"
+                value={enderecoForm.pais}
+                onChange={atualizarCampoEndereco("pais")}
+                placeholder="Brasil"
+              />
+            </div>
+            <div>
+              <label className="label">Observações</label>
+              <input
+                className="input-field"
+                value={enderecoForm.observacoes}
+                onChange={atualizarCampoEndereco("observacoes")}
+                placeholder="Ponto de referência"
+              />
             </div>
           </div>
           <label className="cart-address-principal">

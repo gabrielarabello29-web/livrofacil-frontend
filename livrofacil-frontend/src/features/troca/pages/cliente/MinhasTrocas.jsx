@@ -82,7 +82,7 @@ export default function MinhasTrocas() {
                       {troca.motivo && <span style={{ color: 'var(--text-muted)' }}> · {troca.motivo}</span>}
                     </div>
                     {troca.detalhes && <p>{troca.detalhes}</p>}
-                    {troca.voucherCodigo && <div role="status" style={{ marginTop: 16, padding: 14, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8 }}><strong>Voucher de troca</strong><div>Código: <code>{troca.voucherCodigo}</code></div><div>Valor: R$ {Number(troca.voucherValor || 0).toFixed(2).replace('.', ',')}</div></div>}
+                    {troca.voucherCodigo && <div role="status" data-testid="voucher-troca" style={{ marginTop: 16, padding: 14, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8 }}><strong>Voucher de troca</strong><div>Código: <code>{troca.voucherCodigo}</code></div><div>Valor atual: R$ {Number(troca.voucherValor || 0).toFixed(2).replace('.', ',')}</div></div>}
                   </div>
                   )
                 })}
