@@ -97,9 +97,13 @@ export function CarrinhoProvider({ children }) {
 
   async function adicionarItem(livro, quantidade = 1) {
     const estoqueDisponivel = obterEstoqueDisponivel(livro)
+    const itemExistente = itens.find((atual) => String(atual.livroId ?? atual.produtoId ?? atual.livro?.id ?? atual.id) === String(livro.id))
+    const quantidadeAtual = Number(itemExistente?.quantidade || 0)
     quantidade = Math.max(1, Number(quantidade) || 1)
-    if (estoqueDisponivel !== null && quantidade > estoqueDisponivel) {
-      const error = { mensagem: `Quantidade máxima disponível: ${estoqueDisponivel}.` }
+    const quantidadeFinal = quantidadeAtual + quantidade
+
+    if (estoqueDisponivel !== null && quantidadeFinal > estoqueDisponivel) {
+      const error = { mensagem: 'Quantidade solicitada superior ao estoque disponível.' }
       setErro(error.mensagem)
       throw error
     }
@@ -123,7 +127,11 @@ export function CarrinhoProvider({ children }) {
     const item = itens.find((atual) => String(atual.id) === String(itemId))
     const estoqueDisponivel = obterEstoqueDisponivel(item)
     quantidade = Math.max(1, Number(quantidade) || 1)
-    if (estoqueDisponivel !== null) quantidade = Math.min(quantidade, estoqueDisponivel)
+    if (estoqueDisponivel !== null && quantidade > estoqueDisponivel) {
+      const error = { mensagem: 'Quantidade solicitada superior ao estoque disponível.' }
+      setErro(error.mensagem)
+      throw error
+    }
     if (estoqueDisponivel === 0) {
       const error = { mensagem: 'Este livro não possui estoque disponível.' }
       setErro(error.mensagem)

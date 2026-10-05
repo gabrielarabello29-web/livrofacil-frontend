@@ -157,13 +157,17 @@ function ordenarFormasPagamento(registros) {
 
 const vazioEndereco = {
   tipoEndereco: '',
+  tipoResidencia: '',
   logradouro: '',
+  tipoLogradouro: '',
   numero: '',
   complemento: '',
   bairro: '',
   cidade: '',
   estado: '',
   cep: '',
+  pais: '',
+  observacoes: '',
   principal: false,
 }
 
@@ -410,14 +414,18 @@ export default function ClienteDetalhes() {
     setEnderecoEditandoId(endereco.id)
     setEnderecoFormAberto(true)
     setEnderecoForm({
-      tipoEndereco: endereco.tipoEndereco || '',
-      logradouro: endereco.logradouro || '',
+      tipoEndereco: endereco.tipoEndereco || endereco.tipoResidencia || '',
+      tipoResidencia: endereco.tipoResidencia || endereco.tipoEndereco || '',
+      logradouro: endereco.logradouro || endereco.tipoLogradouro || '',
+      tipoLogradouro: endereco.tipoLogradouro || endereco.logradouro || '',
       numero: endereco.numero || '',
       complemento: endereco.complemento || '',
       bairro: endereco.bairro || '',
       cidade: endereco.cidade || '',
       estado: endereco.estado || '',
       cep: endereco.cep || '',
+      pais: endereco.pais || '',
+      observacoes: endereco.observacoes || '',
       principal: Boolean(endereco.principal),
     })
     setEnderecoErros({})
@@ -429,14 +437,18 @@ export default function ClienteDetalhes() {
 
     const estado = String(enderecoForm.estado || '').trim().toUpperCase()
     const payload = {
-      tipoEndereco: String(enderecoForm.tipoEndereco || '').trim(),
-      logradouro: String(enderecoForm.logradouro || '').trim(),
+      tipoEndereco: String(enderecoForm.tipoEndereco || enderecoForm.tipoResidencia || '').trim(),
+      tipoResidencia: String(enderecoForm.tipoResidencia || enderecoForm.tipoEndereco || '').trim(),
+      logradouro: String(enderecoForm.logradouro || enderecoForm.tipoLogradouro || '').trim(),
+      tipoLogradouro: String(enderecoForm.tipoLogradouro || enderecoForm.logradouro || '').trim(),
       numero: String(enderecoForm.numero || '').trim(),
       complemento: String(enderecoForm.complemento || '').trim(),
       bairro: String(enderecoForm.bairro || '').trim(),
       cidade: String(enderecoForm.cidade || '').trim(),
       estado,
       cep: String(enderecoForm.cep || '').trim(),
+      pais: String(enderecoForm.pais || '').trim(),
+      observacoes: String(enderecoForm.observacoes || '').trim(),
       principal: Boolean(enderecoForm.principal),
     }
 
@@ -805,6 +817,14 @@ export default function ClienteDetalhes() {
                       <label className="label">CEP</label>
                       <input className="input-field" value={enderecoForm.cep} onChange={(event) => setEnderecoForm((atual) => ({ ...atual, cep: mascararCep(event.target.value) }))} style={{ borderColor: enderecoErros.cep ? '#DC2626' : undefined }} />
                       {enderecoErros.cep && <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4 }}>{enderecoErros.cep}</div>}
+                    </div>
+                    <div>
+                      <label className="label">País</label>
+                      <input className="input-field" value={enderecoForm.pais} onChange={(event) => setEnderecoForm((atual) => ({ ...atual, pais: event.target.value }))} placeholder="Brasil" />
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label className="label">Observações</label>
+                      <input className="input-field" value={enderecoForm.observacoes} onChange={(event) => setEnderecoForm((atual) => ({ ...atual, observacoes: event.target.value }))} placeholder="Ponto de referência" />
                     </div>
                   </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

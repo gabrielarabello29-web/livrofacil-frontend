@@ -12,9 +12,9 @@ import {
   buscarMeuPedido,
   finalizarCompra,
   limparCheckoutLocal,
-  obterEnderecoCheckout,
   obterMensagemErro,
   obterPedidoCheckoutId,
+  resolverEnderecoCheckoutAtual,
 } from "@/features/checkout/api/checkoutApi"
 
 
@@ -91,11 +91,16 @@ export default function CheckoutRevisaoPage() {
 
   if (!pedido) return null
 
-  if (!pedido.enderecoEntregaObjeto)
-    pedido.enderecoEntregaObjeto =
-      pedido.enderecoEntrega ||
-      pedido.endereco ||
-      obterEnderecoCheckout(pedidoId)
+  const enderecoEntrega = resolverEnderecoCheckoutAtual({
+    pedidoId,
+    pedido,
+  })
+
+  const itensPedido = Array.isArray(pedido?.itens) && pedido.itens.length > 0 ? pedido.itens : itens
+
+  if (enderecoEntrega) {
+    pedido.enderecoEntregaObjeto = enderecoEntrega
+  }
 
   async function finalizar() {
     const pagamentos =
@@ -114,6 +119,18 @@ export default function CheckoutRevisaoPage() {
       (soma, item) => soma + Number(item.valor || 0),
       0,
     )
+    const pagamentoResidualComCupom = Boolean(pagamento.cupomAplicado) &&
+      totalPedido > 0 &&
+      totalPedido < 10 &&
+      pagamentos.length === 1 &&
+      Number(pagamentos[0]?.valor) === totalPedido
+    if (
+      pagamentos.some((item) => Number(item.valor) < 10) &&
+      !pagamentoResidualComCupom
+    ) {
+      setErro("Cada cartão deve pagar pelo menos R$ 10,00.")
+      return
+    }
     if (pagamentos.length === 0 && totalPedido !== 0) {
       setErro("Selecione uma forma de pagamento.")
       return
@@ -137,7 +154,12 @@ export default function CheckoutRevisaoPage() {
       }
       limparCheckoutLocal()
       await recarregar()
-      navigate("/checkout/sucesso", { state: { pedido: resposta } })
+      navigate("/checkout/sucesso", {
+        state: {
+          pedido: resposta,
+          endereco: enderecoEntrega,
+        },
+      })
     } catch (error) {
       console.error(
         "Erro ao finalizar checkout:",
@@ -169,28 +191,33 @@ export default function CheckoutRevisaoPage() {
                 <h3>Itens da compra</h3>
               </div>
               <div className="checkout-review-items">
-                {itens.map((item) => (
-                  <div className="checkout-review-product" key={item.id}>
-                    <img
-                      src={item.imagemUrl || item.capa}
-                      alt={`Capa de ${item.titulo}`}
-                    />
-                    <span>
-                      <strong>{item.titulo}</strong>
-                      <small>Quantidade: {item.quantidade}</small>
-                    </span>
-                    <strong>
-                      R${" "}
-                      {Number(
-                        item.subtotal ||
-                          item.valorUnitario * item.quantidade ||
-                          0,
-                      )
-                        .toFixed(2)
-                        .replace(".", ",")}
-                    </strong>
-                  </div>
-                ))}
+                {itensPedido.map((item) => {
+                  const valorItem = Number(
+                    item.subtotal ??
+                    item.valorTotal ??
+                    item.valorUnitario * Number(item.quantidade || 0) ??
+                    0,
+                  )
+
+                  return (
+                    <div className="checkout-review-product" key={item.id || `${item.livroId || item.produtoId || 'item'}-${item.quantidade}`}>
+                      <img
+                        src={item.imagemUrl || item.capa || item.livro?.imagemUrl || item.livro?.capa}
+                        alt={`Capa de ${item.titulo || item.livro?.titulo || 'Livro'}`}
+                      />
+                      <span>
+                        <strong>{item.titulo || item.livro?.titulo || 'Livro'}</strong>
+                        <small>Quantidade: {item.quantidade}</small>
+                      </span>
+                      <strong>
+                        R${" "}
+                        {valorItem
+                          .toFixed(2)
+                          .replace(".", ",")}
+                      </strong>
+                    </div>
+                  )
+                })}
               </div>
             </div>
             <div className="checkout-review-section">
@@ -200,10 +227,10 @@ export default function CheckoutRevisaoPage() {
               </div>
               <div className="checkout-review-address">
                 <strong>
-                  {pedido.enderecoEntregaObjeto?.tipoEndereco ||
+                  {enderecoEntrega?.tipoEndereco ||
                     "Endereço de entrega"}
                 </strong>
-                <span>{formatarEndereco(pedido.enderecoEntregaObjeto)}</span>
+                <span>{formatarEndereco(enderecoEntrega)}</span>
               </div>
             </div>
             <div className="checkout-review-section">

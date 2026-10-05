@@ -46,6 +46,22 @@ function mascararValidade(valor) {
     : digitos
 }
 
+function mascararCodigoSeguranca(valor) {
+  return String(valor || "").replace(/\D/g, "").slice(0, 4)
+}
+
+function novoFormularioCartao(bandeira = "VISA", preferencial = false) {
+  return {
+    nomeTitular: "",
+    numeroCartao: "",
+    codigoSeguranca: "",
+    validade: "",
+    bandeira,
+    tipoCartao: "CREDITO",
+    preferencial,
+  }
+}
+
 function validarCartao(form) {
   const numero = form.numeroCartao.replace(/\D/g, "")
 
@@ -56,6 +72,9 @@ function validarCartao(form) {
 
   if (numero.length !== 16)
     return "O número do cartão deve possuir exatamente 16 dígitos."
+
+  if (!/^\d{3,4}$/.test(form.codigoSeguranca))
+    return "O código de segurança deve conter 3 ou 4 dígitos."
 
   if (!/^\d{2}\/\d{2}$/.test(form.validade))
     return "A validade deve seguir o formato MM/AA."
@@ -73,6 +92,46 @@ function validarCartao(form) {
   return ""
 }
 
+function obterDadosVoucher(...fontes) {
+  const candidatos = fontes.flatMap((fonte) => [
+    fonte,
+    fonte?.voucher,
+    fonte?.cupom,
+    fonte?.pedido?.voucher,
+    fonte?.pedido?.cupom,
+  ]).filter((fonte) => fonte && typeof fonte === "object")
+
+  let voucherValor = null
+  let voucherResgatadoEm = null
+
+  for (const candidato of candidatos) {
+    if (voucherValor === null && candidato.voucherValor !== undefined && candidato.voucherValor !== null) {
+      const valor = Number(candidato.voucherValor)
+      if (Number.isFinite(valor) && valor >= 0) voucherValor = valor
+    }
+    if (voucherResgatadoEm === null && candidato.voucherResgatadoEm) {
+      voucherResgatadoEm = candidato.voucherResgatadoEm
+    }
+  }
+
+  return {
+    voucherValor,
+    voucherResgatadoEm,
+    utilizado: Boolean(voucherResgatadoEm) || voucherValor === 0,
+  }
+}
+
+function obterVoucherGerado(pedido) {
+  const voucher = pedido?.cupomTrocaGerado || pedido?.voucherGerado || pedido?.cupomTroca
+  if (!voucher || typeof voucher !== "object" || !voucher.codigo) return null
+  const valor = Number(voucher.valor ?? voucher.voucherValor)
+  if (!Number.isFinite(valor) || valor < 0) return null
+  return {
+    codigo: String(voucher.codigo),
+    valor,
+  }
+}
+
 export default function CheckoutPagamentoPage() {
   const { usuario, atualizarUsuario } = useAuth()
   const clienteId = obterClienteId(usuario)
@@ -86,17 +145,16 @@ export default function CheckoutPagamentoPage() {
   const [erro, setErro] = useState("")
   const [codigoCupom, setCodigoCupom] = useState("")
   const [cupomAplicado, setCupomAplicado] = useState("")
+  const [tipoCupomAplicado, setTipoCupomAplicado] = useState("")
+  const [cuponsAplicados, setCuponsAplicados] = useState([])
+  const [voucherGerado, setVoucherGerado] = useState(null)
+  const [saldoVoucher, setSaldoVoucher] = useState(null)
+  const [voucherResgatadoEm, setVoucherResgatadoEm] = useState(null)
+  const [identificandoCupom, setIdentificandoCupom] = useState(false)
   const [aplicandoCupom, setAplicandoCupom] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [modalAberto, setModalAberto] = useState(false)
-  const [formCartao, setFormCartao] = useState({
-    nomeTitular: "",
-    numeroCartao: "",
-    validade: "",
-    bandeira: "VISA",
-    tipoCartao: "CREDITO",
-    preferencial: false,
-  })
+  const [formCartao, setFormCartao] = useState(() => novoFormularioCartao())
   const [erroCartao, setErroCartao] = useState("")
   const [salvandoCartao, setSalvandoCartao] = useState(false)
 
@@ -151,6 +209,40 @@ export default function CheckoutPagamentoPage() {
             pedidoAtual?.cupomCodigo ||
             (typeof pedidoAtual?.cupom === "string" ? pedidoAtual.cupom : ""),
         )
+        const cuponsPedido = Array.isArray(pedidoAtual?.cupons)
+          ? pedidoAtual.cupons
+          : pedidoAtual?.cupom
+            ? [pedidoAtual.cupom]
+            : []
+        setCuponsAplicados(
+          cuponsPedido
+            .map((cupom) => typeof cupom === "string" ? { codigo: cupom } : cupom)
+            .filter((cupom) => cupom?.codigo),
+        )
+        setVoucherGerado(obterVoucherGerado(pedidoAtual))
+        const codigoAplicado = pedidoAtual?.cupom?.codigo ||
+          pedidoAtual?.cupomCodigo ||
+          (typeof pedidoAtual?.cupom === "string" ? pedidoAtual.cupom : "")
+        if (codigoAplicado) {
+          setIdentificandoCupom(true)
+          try {
+            const validacaoCupom = await cupomService.validarCupom(codigoAplicado)
+            const dadosCupom = validacaoCupom?.data || validacaoCupom
+            if (ativo && dadosCupom?.valido) {
+              const tipo = String(dadosCupom.tipo || "").toUpperCase()
+              setTipoCupomAplicado(tipo)
+              if (tipo === "FIXO") {
+                const voucher = obterDadosVoucher(dadosCupom, pedidoAtual)
+                setSaldoVoucher(voucher.voucherValor)
+                setVoucherResgatadoEm(voucher.voucherResgatadoEm)
+              }
+            }
+          } catch {
+            // O pedido continua sendo exibido com os valores retornados pelo backend.
+          } finally {
+            if (ativo) setIdentificandoCupom(false)
+          }
+        }
         setBandeirasDisponiveis(bandeiras)
         setCartoes(lista)
         const preferencial =
@@ -206,6 +298,8 @@ export default function CheckoutPagamentoPage() {
   if (!pedido) return null
 
   const totalAPagar = Number(pedido.total ?? pedido.valorTotal ?? 0)
+  const permitePagamentoResidual = Boolean(cupomAplicado) && totalAPagar > 0 && totalAPagar < 10
+  const minimoPagamento = permitePagamentoResidual ? totalAPagar : 10
 
   function atualizarCartao(campo) {
     return (event) => {
@@ -217,22 +311,27 @@ export default function CheckoutPagamentoPage() {
             ? mascararNumeroCartao(valor)
             : campo === "validade"
               ? mascararValidade(valor)
-              : valor,
+              : campo === "codigoSeguranca"
+                ? mascararCodigoSeguranca(valor)
+                : valor,
       }))
     }
   }
 
   function abrirCadastroCartao() {
-    setFormCartao({
-      nomeTitular: "",
-      numeroCartao: "",
-      validade: "",
-      bandeira: bandeirasDisponiveis[0] || "",
-      tipoCartao: "CREDITO",
-      preferencial: cartoes.length === 0,
-    })
+    setFormCartao(
+      novoFormularioCartao(
+        bandeirasDisponiveis[0] || "VISA",
+        cartoes.length === 0,
+      ),
+    )
     setErroCartao("")
     setModalAberto(true)
+  }
+
+  function fecharCadastroCartao() {
+    setModalAberto(false)
+    setFormCartao((atual) => ({ ...atual, codigoSeguranca: "" }))
   }
 
   async function salvarCartao(event) {
@@ -242,17 +341,19 @@ export default function CheckoutPagamentoPage() {
       setErroCartao(erroValidacao)
       return
     }
-    const numero = formCartao.numeroCartao.replace(/\D/g, "")
     setSalvandoCartao(true)
     setErroCartao("")
     try {
       await formaPagamentoService.criarFormaPagamento(clienteId, {
-        ...formCartao,
-        tipoCartao: "CREDITO",
         nomeTitular: formCartao.nomeTitular.trim(),
-        numeroCartao: numero,
+        tipoCartao: "CREDITO",
+        numeroCartao: formCartao.numeroCartao,
+        codigoSeguranca: formCartao.codigoSeguranca,
         validade: formCartao.validade.trim(),
+        bandeira: formCartao.bandeira,
+        preferencial: formCartao.preferencial,
       })
+      setFormCartao((atual) => ({ ...atual, codigoSeguranca: "" }))
       const lista = await formaPagamentoService.listarFormasPagamento(
         clienteId,
       )
@@ -284,14 +385,7 @@ export default function CheckoutPagamentoPage() {
       }
       atualizarUsuario({ cartoes: novosCartoes })
       setModalAberto(false)
-      setFormCartao({
-        nomeTitular: "",
-        numeroCartao: "",
-        validade: "",
-        bandeira: bandeirasDisponiveis[0] || "",
-        tipoCartao: "CREDITO",
-        preferencial: false,
-      })
+      setFormCartao(novoFormularioCartao(bandeirasDisponiveis[0] || "VISA"))
     } catch (error) {
       const mensagem =
         error?.message || error?.mensagem || "Não foi possível salvar o cartão."
@@ -308,15 +402,24 @@ export default function CheckoutPagamentoPage() {
   }
 
   function adicionarPagamento() {
-    setPagamentos((atuais) => [
-      ...atuais,
-      {
-        id: Date.now(),
-        formaPagamentoId: cartoes[0] ? String(cartoes[0].id) : "",
-        valor: 0,
-        parcelas: 1,
-      },
-    ])
+    setPagamentos((atuais) => {
+      const totalCentavos = Math.round(totalAPagar * 100)
+      const parcelaBase = Math.floor(totalCentavos / (atuais.length + 1))
+      let restante = totalCentavos
+      return Array.from({ length: atuais.length + 1 }, (_, index) => {
+        const pagamentoAtual = atuais[index]
+          const valorCentavos = index === atuais.length ? restante : parcelaBase
+        restante -= valorCentavos
+        return {
+          id: pagamentoAtual?.id || Date.now() + index,
+            formaPagamentoId:
+              pagamentoAtual?.formaPagamentoId ||
+              String(cartoes[index % cartoes.length]?.id || ""),
+          valor: valorCentavos / 100,
+          parcelas: pagamentoAtual?.parcelas || 1,
+        }
+      })
+    })
   }
 
   function atualizarPagamento(id, campo, novoValor) {
@@ -333,6 +436,11 @@ export default function CheckoutPagamentoPage() {
               }
             : pagamento,
         )
+      if (novoValor === "") {
+        return atuais.map((pagamento) =>
+          pagamento.id === id ? { ...pagamento, valor: "" } : pagamento,
+        )
+      }
       const totalCompra = Number(Number(pedido?.total || 0).toFixed(2))
       const outrosPagamentos = atuais
         .filter((pagamento) => pagamento.id !== id)
@@ -370,6 +478,14 @@ export default function CheckoutPagamentoPage() {
       setErro("Não foi possível identificar o cliente pelo UUID.")
       return
     }
+    if (totalAPagar <= 0) {
+      setErro("A compra já está totalmente coberta; não é necessário aplicar outro cupom.")
+      return
+    }
+    if (cuponsAplicados.some((cupom) => String(cupom.codigo).toUpperCase() === codigo)) {
+      setErro("Este cupom já foi aplicado ao pedido.")
+      return
+    }
 
     setAplicandoCupom(true)
     setErro("")
@@ -378,6 +494,24 @@ export default function CheckoutPagamentoPage() {
       const dadosValidacao = validacao?.data || validacao
       if (!dadosValidacao?.valido) {
         setErro(dadosValidacao?.mensagem || "Cupom ou voucher inválido ou já utilizado.")
+        return
+      }
+
+      const tipoValidado = String(dadosValidacao.tipo || "").toUpperCase()
+      if (
+        tipoValidado === "PERCENTUAL" &&
+        (tipoCupomAplicado === "PERCENTUAL" ||
+          cuponsAplicados.some((cupom) => String(cupom.tipo || "").toUpperCase() === "PERCENTUAL"))
+      ) {
+        setErro("Só é permitido um cupom promocional por pedido.")
+        setAplicandoCupom(false)
+        return
+      }
+
+      const voucherValidado = obterDadosVoucher(dadosValidacao)
+      if (tipoValidado === "FIXO" && voucherValidado.utilizado) {
+        setErro(dadosValidacao?.mensagem || "Cupom ou voucher já utilizado.")
+        setAplicandoCupom(false)
         return
       }
 
@@ -395,7 +529,25 @@ export default function CheckoutPagamentoPage() {
       }
 
       setPedido(pedidoAtualizado)
-      setCupomAplicado(codigo)
+      const codigoRetornado = typeof pedidoAtualizado?.cupom === "string"
+        ? pedidoAtualizado.cupom
+        : pedidoAtualizado?.cupom?.codigo || codigo
+      const cuponsAtualizados = [
+        ...cuponsAplicados,
+        { codigo: codigoRetornado, tipo: tipoValidado },
+      ]
+      setCuponsAplicados(cuponsAtualizados)
+      setCupomAplicado(cuponsAtualizados.map((cupom) => cupom.codigo).join(", "))
+      setTipoCupomAplicado(tipoValidado)
+      setVoucherGerado(obterVoucherGerado(pedidoAtualizado))
+      if (tipoValidado === "FIXO") {
+        const voucher = obterDadosVoucher(pedidoAtualizado, dadosValidacao)
+        setSaldoVoucher(voucher.voucherValor)
+        setVoucherResgatadoEm(voucher.voucherResgatadoEm)
+      } else {
+        setSaldoVoucher(null)
+        setVoucherResgatadoEm(null)
+      }
       setPagamentos((atuais) =>
         novoTotal === 0
           ? []
@@ -412,6 +564,7 @@ export default function CheckoutPagamentoPage() {
             ],
       )
       setCodigoCupom("")
+      setValor(novoTotal.toFixed(2))
     } catch (error) {
       setErro(
         error?.mensagem ||
@@ -424,9 +577,7 @@ export default function CheckoutPagamentoPage() {
   }
 
   function continuar() {
-    const pagamentosValidos = pagamentos.filter(
-      (pagamento) => pagamento.formaPagamentoId,
-    )
+    const pagamentosValidos = pagamentos
     const totalPagamentos = pagamentosValidos.reduce(
       (soma, pagamento) => soma + Number(pagamento.valor || 0),
       0,
@@ -434,14 +585,24 @@ export default function CheckoutPagamentoPage() {
     const totalCompra = totalAPagar
     if (totalCompra === 0 && pagamentosValidos.length === 0) {
       navigate("/checkout/revisao", {
-        state: { pagamentos: [], cartoes: [] },
+        state: { pagamentos: [], cartoes: [], cupomAplicado, tipoCupomAplicado },
       })
       return
     }
     if (!pagamentosValidos.length)
       return setErro("Selecione pelo menos um cartão.")
-    if (pagamentosValidos.some((pagamento) => Number(pagamento.valor) < 1))
-      return setErro("Cada cartão deve pagar pelo menos R$ 1,00.")
+    if (pagamentosValidos.some((pagamento) => !pagamento.formaPagamentoId))
+      return setErro("Selecione um cartão para cada parcela do pagamento.")
+    if (pagamentosValidos.some((pagamento) => !Number.isFinite(Number(pagamento.valor)) || Number(pagamento.valor) <= 0))
+      return setErro("Informe um valor válido para cada cartão.")
+    if (
+      pagamentosValidos.some((pagamento) => Number(pagamento.valor) < 10) &&
+      !(permitePagamentoResidual &&
+        pagamentosValidos.length === 1 &&
+        Number(pagamentosValidos[0].valor) === totalAPagar)
+    ) {
+      return setErro("Cada cartão deve pagar pelo menos R$ 10,00.")
+    }
     if (Number(totalPagamentos.toFixed(2)) !== Number(totalCompra.toFixed(2)))
       return setErro("A soma dos cartões precisa completar o valor da compra.")
     const pagamentosParaRevisao = pagamentosValidos.map(
@@ -463,6 +624,8 @@ export default function CheckoutPagamentoPage() {
       state: {
         pagamentos: pagamentosParaRevisao,
         cartoes: cartoesParaRevisao,
+        cupomAplicado,
+        tipoCupomAplicado,
         formaPagamentoId: Number(pagamentosValidos[0].formaPagamentoId),
         valor: Number(pagamentosValidos[0].valor),
         parcelas: Number(pagamentosValidos[0].parcelas),
@@ -569,9 +732,10 @@ export default function CheckoutPagamentoPage() {
                         <input
                           className="input-field"
                           type="number"
-                          min="0"
+                          min={minimoPagamento}
                           step="0.01"
                           value={pagamento.valor}
+                          data-testid={`valor-pagamento-${index + 1}`}
                           onChange={(event) =>
                             atualizarPagamento(
                               pagamento.id,
@@ -634,9 +798,10 @@ export default function CheckoutPagamentoPage() {
                   <input
                     className="input-field"
                     type="number"
-                    min="1"
+                    min={minimoPagamento}
                     step="0.01"
                     value={valor}
+                    data-testid="valor-pagamento-1"
                     onChange={(event) => setValor(event.target.value)}
                   />
                 </label>
@@ -665,6 +830,7 @@ export default function CheckoutPagamentoPage() {
                 <input
                   className="input-field"
                   value={codigoCupom}
+                  data-testid="codigo-cupom"
                   onChange={(event) => setCodigoCupom(event.target.value)}
                   placeholder="Digite o código"
                   autoComplete="off"
@@ -674,7 +840,8 @@ export default function CheckoutPagamentoPage() {
               <button
                 className="btn-secondary"
                 type="submit"
-                disabled={aplicandoCupom || !codigoCupom.trim()}
+                data-testid="aplicar-cupom"
+                disabled={aplicandoCupom || identificandoCupom || !codigoCupom.trim()}
               >
                 {aplicandoCupom ? "Aplicando..." : "Aplicar"}
               </button>
@@ -682,6 +849,23 @@ export default function CheckoutPagamentoPage() {
             {cupomAplicado && (
               <p role="status" style={{ color: "var(--success)" }}>
                 Código aplicado: {cupomAplicado}
+              </p>
+            )}
+            {voucherGerado && (
+              <p role="status" data-testid="voucher-gerado">
+                Cupom de troca emitido: {voucherGerado.codigo} · Saldo: R${" "}
+                {voucherGerado.valor.toFixed(2).replace(".", ",")}
+              </p>
+            )}
+            {tipoCupomAplicado === "FIXO" && !voucherResgatadoEm && saldoVoucher !== null && saldoVoucher > 0 && (
+              <p role="status" data-testid="saldo-voucher">
+                Saldo atual do voucher: R${" "}
+                {saldoVoucher.toFixed(2).replace(".", ",")}
+              </p>
+            )}
+            {tipoCupomAplicado === "FIXO" && (voucherResgatadoEm || saldoVoucher === 0) && (
+              <p role="status" data-testid="voucher-resgatado">
+                Voucher resgatado
               </p>
             )}
             <div className="checkout-actions">
@@ -694,6 +878,7 @@ export default function CheckoutPagamentoPage() {
               <button
                 className="btn-primary"
                 onClick={continuar}
+                data-testid="revisar-pedido"
                 disabled={salvando || (totalAPagar > 0 && cartoes.length === 0)}
               >
                 Revisar pedido
@@ -705,7 +890,7 @@ export default function CheckoutPagamentoPage() {
       </main>
       <Modal
         isOpen={modalAberto}
-        onClose={() => setModalAberto(false)}
+        onClose={fecharCadastroCartao}
         title="Cadastrar cartão"
         width={520}
       >
@@ -729,6 +914,7 @@ export default function CheckoutPagamentoPage() {
             <input
               className="input-field"
               value={formCartao.numeroCartao}
+              data-testid="numero-cartao"
               onChange={atualizarCartao("numeroCartao")}
               placeholder="0000 0000 0000 0000"
               maxLength={19}
@@ -740,6 +926,7 @@ export default function CheckoutPagamentoPage() {
             <input
               className="input-field"
               value={formCartao.nomeTitular}
+              data-testid="nome-titular"
               onChange={atualizarCartao("nomeTitular")}
               placeholder="Como aparece no cartão"
             />
@@ -750,22 +937,36 @@ export default function CheckoutPagamentoPage() {
               <input
                 className="input-field"
                 value={formCartao.validade}
+                data-testid="validade-cartao"
                 onChange={atualizarCartao("validade")}
                 placeholder="MM/AA"
                 maxLength={5}
               />
             </div>
             <div>
-              <label className="label">Tipo *</label>
-              <select
+              <label className="label" htmlFor="tipo-cartao">Tipo *</label>
+              <input
+                id="tipo-cartao"
                 className="input-field"
-                value={formCartao.tipoCartao}
-                onChange={atualizarCartao("tipoCartao")}
-              >
-                <option value="CREDITO">Crédito</option>
-                <option value="DEBITO">Débito</option>
-              </select>
+                value="Crédito"
+                readOnly
+                aria-label="Tipo do cartão"
+              />
             </div>
+          </div>
+          <div>
+            <label className="label" htmlFor="codigo-seguranca">Código de segurança *</label>
+            <input
+              id="codigo-seguranca"
+              className="input-field"
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              maxLength={4}
+              value={formCartao.codigoSeguranca}
+              onChange={atualizarCartao("codigoSeguranca")}
+              data-testid="codigo-seguranca"
+            />
           </div>
           {erroCartao && (
             <div className="checkout-error" role="alert">
@@ -776,7 +977,7 @@ export default function CheckoutPagamentoPage() {
             <button
               type="button"
               className="btn-secondary"
-              onClick={() => setModalAberto(false)}
+              onClick={fecharCadastroCartao}
             >
               Cancelar
             </button>

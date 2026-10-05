@@ -7,12 +7,16 @@ import Header from "@/shared/components/Header"
 import Modal from "@/shared/components/Modal"
 
 import { obterClienteId, useAuth } from "@/features/auth/context/AuthContext"
+import { useCarrinho } from "@/features/carrinho/context/CarrinhoContext"
 
 import { enderecoService } from "@/features/cliente/api/enderecoService"
 
 import {
+  atualizarPedidoCheckoutParaEndereco,
+  buscarMeuPedido,
   iniciarCompra,
-  obterMensagemErro,
+  normalizarEnderecoCheckout,  obterEnderecoCheckout,
+  obterIndiceEnderecoSelecionado,  obterMensagemErro,
   obterPedidoCheckoutId,
   salvarEnderecoCheckout,
   salvarPedidoCheckout,
@@ -27,6 +31,33 @@ function formatarEndereco(endereco) {
   return `${endereco.logradouro}, ${endereco.numero}${
     endereco.complemento ? ` - ${endereco.complemento}` : ""
   } - ${endereco.bairro}, ${endereco.cidade}/${endereco.estado} - CEP ${endereco.cep}`
+}
+
+function quantidadesPorLivro(itens) {
+  if (!Array.isArray(itens)) return null
+
+  const quantidades = new Map()
+  for (const item of itens) {
+    const livroId = item?.livroId ?? item?.produtoId ?? item?.livro?.id
+    const quantidade = Number(item?.quantidade)
+    if (livroId == null || !Number.isFinite(quantidade) || quantidade < 1) {
+      return null
+    }
+    const chave = String(livroId)
+    quantidades.set(chave, (quantidades.get(chave) || 0) + quantidade)
+  }
+  return quantidades
+}
+
+function pedidoCorrespondeAoCarrinho(pedido, itensCarrinho) {
+  const quantidadesPedido = quantidadesPorLivro(pedido?.itens)
+  const quantidadesCarrinho = quantidadesPorLivro(itensCarrinho)
+  if (!quantidadesPedido || !quantidadesCarrinho) return false
+  if (quantidadesPedido.size !== quantidadesCarrinho.size) return false
+
+  return [...quantidadesCarrinho].every(
+    ([livroId, quantidade]) => quantidadesPedido.get(livroId) === quantidade,
+  )
 }
 
 const estadosBR = [
@@ -71,18 +102,23 @@ function mascararCep(valor) {
 
 const enderecoVazio = {
   tipoEndereco: "",
+  tipoResidencia: "",
   logradouro: "",
+  tipoLogradouro: "",
   numero: "",
   complemento: "",
   bairro: "",
   cidade: "",
   estado: "",
   cep: "",
+  pais: "",
+  observacoes: "",
   principal: false,
 }
 
 export default function CheckoutEnderecoPage() {
   const { usuario, atualizarUsuario } = useAuth()
+  const { itens: itensCarrinho, carregando: carregandoCarrinho } = useCarrinho()
   const clienteId = obterClienteId(usuario)
   const navigate = useNavigate()
 
@@ -90,12 +126,32 @@ export default function CheckoutEnderecoPage() {
   const [selecionado, setSelecionado] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
+  const [atualizandoFrete, setAtualizandoFrete] = useState(false)
+  const [pedidoCheckout, setPedidoCheckout] = useState(null)
+  const [carregandoPedido, setCarregandoPedido] = useState(() => Boolean(obterPedidoCheckoutId()))
   const [erro, setErro] = useState("")
 
   const [modalAberto, setModalAberto] = useState(false)
   const [formEndereco, setFormEndereco] = useState(enderecoVazio)
   const [salvandoEndereco, setSalvandoEndereco] = useState(false)
   const [erroEndereco, setErroEndereco] = useState("")
+
+  function enderecosIguais(primeiro, segundo) {
+    if (!primeiro || !segundo) return false
+
+    const idPrimeiro = primeiro.id ?? primeiro.idEndereco
+    const idSegundo = segundo.id ?? segundo.idEndereco
+    if (idPrimeiro != null && idSegundo != null) {
+      return String(idPrimeiro) === String(idSegundo)
+    }
+
+    const campos = ["logradouro", "numero", "bairro", "cidade", "estado", "cep"]
+    return campos.every(
+      (campo) =>
+        String(primeiro[campo] || "").trim().toLowerCase() ===
+        String(segundo[campo] || "").trim().toLowerCase(),
+    )
+  }
 
   useEffect(() => {
     if (!clienteId) {
@@ -107,17 +163,41 @@ export default function CheckoutEnderecoPage() {
       .listarEnderecos(clienteId)
       .then((resposta) => {
         const lista = Array.isArray(resposta) ? resposta : []
+        const pedidoId = obterPedidoCheckoutId()
+        const enderecoPersistido = pedidoId ? obterEnderecoCheckout(String(pedidoId)) : null
+        const indiceSelecionado = obterIndiceEnderecoSelecionado(lista, enderecoPersistido)
         setEnderecos(lista)
-        setSelecionado(
-          lista.findIndex((item) => item.principal) >= 0
-            ? lista.findIndex((item) => item.principal)
-            : 0,
-        )
+        setSelecionado(indiceSelecionado)
       })
       .catch((error) =>
         setErro(error?.mensagem || "Não foi possível carregar os endereços."),
       )
       .finally(() => setCarregando(false))
+  }, [clienteId])
+
+  useEffect(() => {
+    const pedidoId = obterPedidoCheckoutId()
+    if (!pedidoId || !clienteId) {
+      setCarregandoPedido(false)
+      return
+    }
+
+    let ativo = true
+    setCarregandoPedido(true)
+    buscarMeuPedido(clienteId, pedidoId)
+      .then((pedido) => {
+        if (ativo) setPedidoCheckout(pedido)
+      })
+      .catch((error) => {
+        if (ativo) setErro(obterMensagemErro(error))
+      })
+      .finally(() => {
+        if (ativo) setCarregandoPedido(false)
+      })
+
+    return () => {
+      ativo = false
+    }
   }, [clienteId])
 
   function atualizarCampo(campo) {
@@ -157,12 +237,18 @@ export default function CheckoutEnderecoPage() {
     setSalvandoEndereco(true)
     setErroEndereco("")
     try {
-      const payload = Object.fromEntries(
-        Object.entries(formEndereco).map(([campo, valor]) => [
-          campo,
-          typeof valor === "string" ? valor.trim() : valor,
-        ]),
-      )
+      const payload = {
+        ...formEndereco,
+        tipoEndereco: String(formEndereco.tipoEndereco || formEndereco.tipoResidencia || "").trim(),
+        tipoResidencia: String(formEndereco.tipoResidencia || formEndereco.tipoEndereco || "").trim(),
+        logradouro: String(formEndereco.logradouro || formEndereco.tipoLogradouro || "").trim(),
+        tipoLogradouro: String(formEndereco.tipoLogradouro || formEndereco.logradouro || "").trim(),
+        estado: String(formEndereco.estado || "").trim().toUpperCase(),
+        cep: String(formEndereco.cep || "").trim(),
+        pais: String(formEndereco.pais || "").trim(),
+        observacoes: String(formEndereco.observacoes || "").trim(),
+        principal: Boolean(formEndereco.principal),
+      }
       const criado = await enderecoService.criarEndereco(clienteId, payload)
       const novoEndereco = criado || payload
       const novosEnderecos = [...enderecos, novoEndereco]
@@ -180,36 +266,127 @@ export default function CheckoutEnderecoPage() {
     }
   }
 
+  async function salvarEnderecoSelecionadoAtual(index) {
+    const enderecoAtual = enderecos[index]
+    if (!enderecoAtual) return
+
+    const pedidoExistente = obterPedidoCheckoutId()
+    if (!pedidoExistente) return null
+
+    const enderecoDoPedido = obterEnderecoCheckout(String(pedidoExistente))
+    if (
+      enderecosIguais(enderecoDoPedido, enderecoAtual) &&
+      pedidoCorrespondeAoCarrinho(pedidoCheckout, itensCarrinho)
+    ) return null
+
+    const carrinhoId = Number(localStorage.getItem("carrinhoId"))
+
+    if (!clienteId || !Number.isInteger(carrinhoId)) {
+      throw new Error("Não foi possível identificar o cliente ou o carrinho para atualizar o frete.")
+    }
+
+    const pedidoAtualizado = await atualizarPedidoCheckoutParaEndereco({
+      clienteId,
+      carrinhoId,
+      endereco: enderecoAtual,
+      pedidoAtualId: pedidoExistente,
+    })
+
+    if (!pedidoAtualizado?.id) {
+      throw new Error("O backend não retornou o pedido atualizado para calcular o frete.")
+    }
+
+    salvarEnderecoCheckout(
+      pedidoAtualizado.id,
+      normalizarEnderecoCheckout(enderecoAtual),
+    )
+    setPedidoCheckout(pedidoAtualizado)
+    return pedidoAtualizado
+  }
+
+  async function atualizarEnderecoSelecionado(index) {
+    const enderecoAtual = enderecos[index]
+    if (!enderecoAtual || atualizandoFrete || salvando) return
+
+    const selecaoAnterior = selecionado
+    setSelecionado(index)
+    setErro("")
+
+    const pedidoExistente = obterPedidoCheckoutId()
+    const enderecoDoPedido = pedidoExistente
+      ? obterEnderecoCheckout(String(pedidoExistente))
+      : null
+    if (
+      !pedidoExistente ||
+      (enderecosIguais(enderecoDoPedido, enderecoAtual) &&
+        pedidoCorrespondeAoCarrinho(pedidoCheckout, itensCarrinho))
+    ) return
+
+    setAtualizandoFrete(true)
+    try {
+      await salvarEnderecoSelecionadoAtual(index)
+    } catch (error) {
+      setSelecionado(selecaoAnterior)
+      setErro(obterMensagemErro(error))
+    } finally {
+      setAtualizandoFrete(false)
+    }
+  }
+
+  function selecionarEndereco(index) {
+    if (index === selecionado) return
+    atualizarEnderecoSelecionado(index)
+  }
+
   async function continuar() {
     if (selecionado === null || !enderecos[selecionado]) {
       setErro("Selecione um endereço de entrega válido.")
       return
     }
-    const pedidoExistente = obterPedidoCheckoutId()
-    if (pedidoExistente) {
-      salvarEnderecoCheckout(pedidoExistente, enderecos[selecionado])
-      navigate("/checkout/pagamento")
-      return
-    }
-    const carrinhoId = localStorage.getItem("carrinhoId")
-    if (!carrinhoId) {
-      setErro("Seu carrinho não foi encontrado.")
-      return
-    }
     setSalvando(true)
     setErro("")
     try {
-      const pedido = await iniciarCompra({
-        clienteId,
-        carrinhoId: Number(carrinhoId),
-        enderecoEntregaId: enderecos[selecionado].id,
-        enderecoCobranca: formatarEndereco(enderecos[selecionado]),
-      })
-      salvarPedidoCheckout(pedido)
-      salvarEnderecoCheckout(pedido.id, enderecos[selecionado])
+      const pedidoExistente = obterPedidoCheckoutId()
+      const enderecoAtual = enderecos[selecionado]
+      const enderecoDoPedido = pedidoExistente
+        ? obterEnderecoCheckout(String(pedidoExistente))
+        : null
+
+      if (
+        pedidoExistente &&
+        enderecosIguais(enderecoDoPedido, enderecoAtual) &&
+        pedidoCorrespondeAoCarrinho(pedidoCheckout, itensCarrinho)
+      ) {
+        navigate("/checkout/pagamento")
+        return
+      }
+
+      let pedido
+      if (pedidoExistente) {
+        pedido = await salvarEnderecoSelecionadoAtual(selecionado)
+      } else {
+        const carrinhoId = Number(localStorage.getItem("carrinhoId"))
+        if (!Number.isInteger(carrinhoId)) {
+          throw new Error("Seu carrinho não foi encontrado.")
+        }
+
+        pedido = await iniciarCompra({
+          clienteId,
+          carrinhoId,
+          enderecoEntregaId: enderecoAtual.id ?? enderecoAtual.idEndereco,
+          enderecoCobranca: formatarEndereco(enderecoAtual),
+        })
+        salvarPedidoCheckout(pedido)
+        salvarEnderecoCheckout(
+          pedido.id,
+          normalizarEnderecoCheckout(enderecoAtual),
+        )
+        setPedidoCheckout(pedido)
+      }
+
+      if (!pedido?.id) throw new Error("O backend não retornou um pedido válido.")
       navigate("/checkout/pagamento")
     } catch (error) {
-      console.error("Erro ao iniciar checkout:", error?.response?.data || error)
       setErro(obterMensagemErro(error))
     } finally {
       setSalvando(false)
@@ -252,7 +429,8 @@ export default function CheckoutEnderecoPage() {
                     <input
                       type="radio"
                       checked={index === selecionado}
-                      onChange={() => setSelecionado(index)}
+                      disabled={atualizandoFrete || salvando}
+                      onChange={() => selecionarEndereco(index)}
                     />
                     <span>
                       <strong>{endereco.tipoEndereco || "Endereço"}</strong>
@@ -272,13 +450,20 @@ export default function CheckoutEnderecoPage() {
               <button
                 className="btn-primary"
                 onClick={continuar}
-                disabled={salvando || carregando || enderecos.length === 0}
+                disabled={salvando || atualizandoFrete || carregandoPedido || carregandoCarrinho || carregando || enderecos.length === 0}
               >
                 {salvando ? "Iniciando..." : "Continuar"}
               </button>
             </div>
           </section>
-          <CheckoutSummary />
+          <CheckoutSummary
+            pedido={pedidoCorrespondeAoCarrinho(pedidoCheckout, itensCarrinho) ? pedidoCheckout : null}
+          />
+          {atualizandoFrete && (
+            <p role="status" className="checkout-status">
+              Atualizando o frete para o endereço selecionado...
+            </p>
+          )}
         </div>
       </main>
       <Modal
@@ -363,6 +548,26 @@ export default function CheckoutEnderecoPage() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+          <div className="cart-address-grid">
+            <div>
+              <label className="label">País</label>
+              <input
+                className="input-field"
+                value={formEndereco.pais}
+                onChange={atualizarCampo("pais")}
+                placeholder="Brasil"
+              />
+            </div>
+            <div>
+              <label className="label">Observações</label>
+              <input
+                className="input-field"
+                value={formEndereco.observacoes}
+                onChange={atualizarCampo("observacoes")}
+                placeholder="Ponto de referência"
+              />
             </div>
           </div>
           <label className="cart-address-principal">

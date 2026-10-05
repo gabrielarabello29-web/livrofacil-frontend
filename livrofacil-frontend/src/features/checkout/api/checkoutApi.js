@@ -48,15 +48,161 @@ export function obterPedidoCheckoutId() {
   try { return JSON.parse(salvo)?.id || salvo } catch { return salvo }
 }
 
+function formatarEnderecoCheckout(endereco) {
+  if (!endereco) return ''
+  const logradouro = endereco.logradouro || endereco.tipoLogradouro || ''
+  const numero = endereco.numero || ''
+  const complemento = endereco.complemento ? ` - ${endereco.complemento}` : ''
+  const bairro = endereco.bairro || ''
+  const cidade = endereco.cidade || ''
+  const estado = endereco.estado || ''
+  const cep = endereco.cep || ''
+
+  return `${logradouro}, ${numero}${complemento} - ${bairro}, ${cidade}/${estado} - CEP ${cep}`.replace(/\s+/g, ' ').trim()
+}
+
+export function normalizarEnderecoCheckout(endereco) {
+  if (!endereco) return null
+  if (typeof endereco === 'string') return endereco
+
+  const tipoEndereco = endereco.tipoEndereco ?? endereco.tipoResidencia ?? ''
+  const logradouro = endereco.logradouro ?? endereco.tipoLogradouro ?? ''
+
+  return {
+    ...endereco,
+    tipoEndereco,
+    tipoResidencia: endereco.tipoResidencia ?? endereco.tipoEndereco ?? tipoEndereco,
+    logradouro,
+    tipoLogradouro: endereco.tipoLogradouro ?? endereco.logradouro ?? logradouro,
+  }
+}
+
+export function calcularIndiceNovoEndereco(enderecosAtuais = [], enderecoNovo) {
+  if (!Array.isArray(enderecosAtuais)) return 0
+
+  const lista = enderecosAtuais.filter(Boolean)
+  if (!enderecoNovo) return lista.length ? lista.length - 1 : 0
+
+  const idNovo = enderecoNovo?.id ?? enderecoNovo?.idEndereco
+  if (idNovo != null) {
+    const indice = lista.findIndex((endereco) => {
+      const idAtual = endereco?.id ?? endereco?.idEndereco
+      return idAtual != null && String(idAtual) === String(idNovo)
+    })
+    if (indice >= 0) return indice
+  }
+
+  return lista.length
+}
+
+export function obterIndiceEnderecoSelecionado(enderecos = [], enderecoSelecionado) {
+  const lista = Array.isArray(enderecos) ? enderecos.filter(Boolean) : []
+  if (!lista.length) return 0
+
+  const endereco = normalizarEnderecoCheckout(enderecoSelecionado)
+  if (!endereco) {
+    const principal = lista.findIndex((item) => item?.principal === true)
+    return principal >= 0 ? principal : 0
+  }
+
+  const idSelecionado = endereco?.id ?? endereco?.idEndereco
+  if (idSelecionado != null) {
+    const indice = lista.findIndex((item) => {
+      const idAtual = item?.id ?? item?.idEndereco
+      return idAtual != null && String(idAtual) === String(idSelecionado)
+    })
+    if (indice >= 0) return indice
+  }
+
+  const chaveSelecionado = [
+    endereco?.logradouro,
+    endereco?.numero,
+    endereco?.bairro,
+    endereco?.cidade,
+    endereco?.estado,
+    endereco?.cep,
+  ]
+    .map((valor) => String(valor || '').trim().toLowerCase())
+    .join('|')
+
+  const indice = lista.findIndex((item) => {
+    const atual = normalizarEnderecoCheckout(item)
+    const chaveAtual = [
+      atual?.logradouro,
+      atual?.numero,
+      atual?.bairro,
+      atual?.cidade,
+      atual?.estado,
+      atual?.cep,
+    ]
+      .map((valor) => String(valor || '').trim().toLowerCase())
+      .join('|')
+    return chaveAtual && chaveAtual === chaveSelecionado
+  })
+
+  if (indice >= 0) return indice
+
+  const principal = lista.findIndex((item) => item?.principal === true)
+  return principal >= 0 ? principal : 0
+}
+
 export function salvarPedidoCheckout(pedido) { if (pedido?.id) localStorage.setItem('pedidoCheckout', String(pedido.id)) }
 export function salvarEnderecoCheckout(pedidoId, endereco) {
-  if (pedidoId && endereco) localStorage.setItem('enderecoCheckout', JSON.stringify({ pedidoId, endereco }))
+  const enderecoNormalizado = normalizarEnderecoCheckout(endereco)
+  if (pedidoId && enderecoNormalizado) localStorage.setItem('enderecoCheckout', JSON.stringify({ pedidoId, endereco: enderecoNormalizado }))
+}
+
+export async function atualizarPedidoCheckoutParaEndereco({ clienteId, carrinhoId, endereco, pedidoAtualId } = {}) {
+  const enderecoNormalizado = normalizarEnderecoCheckout(endereco)
+  if (!clienteIdValido(clienteId)) throw { mensagem: 'Não foi possível identificar o cliente.' }
+  if (!idValido(carrinhoId)) throw { mensagem: 'O carrinho não foi identificado.' }
+  if (!enderecoNormalizado) throw { mensagem: 'Selecione um endereço válido para continuar.' }
+
+  if (pedidoAtualId) {
+    try {
+      const pedidoAtual = await buscarMeuPedido(clienteId, pedidoAtualId)
+      const status = String(pedidoAtual?.status || '').toUpperCase()
+      if (['PENDENTE', 'AGUARDANDO_PAGAMENTO', 'EM_CHECKOUT', 'EM_PROCESSAMENTO'].includes(status)) {
+        await cancelarMeuPedido(clienteId, pedidoAtualId)
+      }
+    } catch {
+      // Se o pedido já tiver sido concluído ou não existir mais, a nova tentativa de compra
+      // deve continuar com o endereço atual do checkout e criar um pedido novo em seguida.
+    }
+  }
+
+  const payload = {
+    clienteId,
+    carrinhoId: Number(carrinhoId),
+    enderecoEntregaId: enderecoNormalizado.id || enderecoNormalizado.idEndereco || null,
+    enderecoCobranca: formatarEnderecoCheckout(enderecoNormalizado),
+  }
+  const pedido = await iniciarCompra(payload)
+
+  salvarPedidoCheckout(pedido)
+  salvarEnderecoCheckout(pedido?.id, enderecoNormalizado)
+
+  return pedido
 }
 export function obterEnderecoCheckout(pedidoId) {
   try {
     const salvo = JSON.parse(localStorage.getItem('enderecoCheckout') || 'null')
-    return String(salvo?.pedidoId) === String(pedidoId) ? salvo.endereco : null
+    if (String(salvo?.pedidoId) !== String(pedidoId)) return null
+    return normalizarEnderecoCheckout(salvo?.endereco)
   } catch { return null }
+}
+export function resolverEnderecoCheckoutAtual({ pedidoId, pedido, fallback } = {}) {
+  const pedidoAtualId = pedidoId ?? pedido?.id ?? obterPedidoCheckoutId()
+  const enderecoPersistido = pedidoAtualId ? obterEnderecoCheckout(String(pedidoAtualId)) : null
+
+  if (enderecoPersistido) return enderecoPersistido
+
+  return normalizarEnderecoCheckout(
+    pedido?.enderecoEntregaObjeto ||
+    pedido?.enderecoEntrega ||
+    pedido?.endereco ||
+    fallback,
+  )
 }
 export function limparCheckoutLocal() { localStorage.removeItem('pedidoCheckout'); localStorage.removeItem('enderecoCheckout'); localStorage.removeItem('checkoutCupom') }
 export function listarPedidosAdmin() { return request('/pedidos/admin') }

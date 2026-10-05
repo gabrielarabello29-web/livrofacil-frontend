@@ -117,18 +117,18 @@ export default function AdminTrocas() {
                     <td style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 180 }}>{troca.motivo || '—'}</td>
                     <td>
                       <span className={`badge ${statusCores[status] || 'badge-gray'}`}>{statusNomes[status] || troca.status || 'Não informado'}</span>
-                      {troca.voucherCodigo && <small style={{ display: 'block', marginTop: 6 }}>Voucher {troca.voucherCodigo} · R$ {Number(troca.voucherValor || 0).toFixed(2).replace('.', ',')}</small>}
+                      {troca.voucherCodigo && <small data-testid={`voucher-troca-${troca.id}`} style={{ display: 'block', marginTop: 6 }}>Voucher {troca.voucherCodigo} · Saldo atual R$ {Number(troca.voucherValor || 0).toFixed(2).replace('.', ',')}</small>}
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 4 }}>
                         {status === 'SOLICITADA' && (
                           <>
-                            <button disabled={processandoId === troca.id} onClick={() => autorizar(troca)} className="btn-primary" style={{ padding: '4px 10px', fontSize: 12 }}>Autorizar</button>
-                            <button disabled={processandoId === troca.id} onClick={() => recusar(troca)} className="btn-danger" style={{ padding: '4px 10px', fontSize: 12 }}>Recusar</button>
+                            <button data-testid={`autorizar-troca-${troca.id}`} disabled={processandoId === troca.id} onClick={() => autorizar(troca)} className="btn-primary" style={{ padding: '4px 10px', fontSize: 12 }}>Autorizar</button>
+                            <button data-testid={`recusar-troca-${troca.id}`} disabled={processandoId === troca.id} onClick={() => recusar(troca)} className="btn-danger" style={{ padding: '4px 10px', fontSize: 12 }}>Recusar</button>
                           </>
                         )}
                         {status === 'AUTORIZADA' && (
-                          <button disabled={processandoId === troca.id} onClick={() => setConfirmModal(troca)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>Recebido</button>
+                          <button data-testid={`recebida-troca-${troca.id}`} disabled={processandoId === troca.id} onClick={() => setConfirmModal(troca)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>Recebido</button>
                         )}
                       </div>
                     </td>
@@ -158,7 +158,7 @@ export default function AdminTrocas() {
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={() => setConfirmModal(null)} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
-            <button disabled={processandoId === confirmModal?.id} onClick={confirmarRecebimento} className="btn-primary" style={{ flex: 1 }}>{processandoId === confirmModal?.id ? 'Confirmando...' : 'Confirmar recebimento'}</button>
+            <button data-testid="confirmar-recebimento-troca" disabled={processandoId === confirmModal?.id} onClick={confirmarRecebimento} className="btn-primary" style={{ flex: 1 }}>{processandoId === confirmModal?.id ? 'Confirmando...' : 'Confirmar recebimento'}</button>
           </div>
         </div>
       </Modal>

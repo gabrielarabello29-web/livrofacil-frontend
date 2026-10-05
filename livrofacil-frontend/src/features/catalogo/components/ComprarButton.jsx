@@ -4,11 +4,11 @@ import { buscarEstoque } from '../../livros/api/livrosApi'
 
 export default function ComprarButton({ livro, className = 'btn-primary' }) {
   const [mensagem, setMensagem] = useState('')
-  const [quantidade, setQuantidade] = useState(1)
+  const [quantidade, setQuantidade] = useState('1')
   const [estoqueDisponivel, setEstoqueDisponivel] = useState(null)
   const [carregandoEstoque, setCarregandoEstoque] = useState(true)
-  const { itens, adicionarItem, operando } = useCarrinho()
-  const jaNoCarrinho = itens.some((item) => String(item.id) === String(livro.id) || String(item.livroId) === String(livro.id))
+  const [processando, setProcessando] = useState(false)
+  const { adicionarItem } = useCarrinho()
   useEffect(() => {
     let ativo = true
     setCarregandoEstoque(true)
@@ -27,22 +27,47 @@ export default function ComprarButton({ livro, className = 'btn-primary' }) {
   const limiteQuantidade = Math.max(1, estoqueDisponivel || 1)
 
   async function prepararCompra() {
+    if (processando) return
+    setProcessando(true)
     try {
-      await adicionarItem(livro, quantidade)
+      await adicionarItem(livro, Math.min(limiteQuantidade, Math.max(1, Number(quantidade) || 1)))
       setMensagem('Livro adicionado ao carrinho.')
     } catch (error) {
       setMensagem(error?.mensagem || 'Não foi possível adicionar o livro ao carrinho.')
+    } finally {
+      setProcessando(false)
     }
   }
 
   return (
     <div>
-      {!jaNoCarrinho && <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <label htmlFor={`quantidade-${livro.id}`} style={{ fontSize: 13, fontWeight: 600 }}>Quantidade</label>
-        <input id={`quantidade-${livro.id}`} className="input-field" type="number" min="1" max={limiteQuantidade} step="1" value={quantidade} disabled={operando || carregandoEstoque || !temEstoque} onChange={(event) => setQuantidade(Math.min(limiteQuantidade, Math.max(1, Number(event.target.value) || 1)))} style={{ width: 80 }} />
+        <input
+          id={`quantidade-${livro.id}`}
+          className="input-field"
+          type="number"
+          min="1"
+          max={limiteQuantidade}
+          step="1"
+          value={quantidade}
+          disabled={processando || carregandoEstoque || !temEstoque}
+          onChange={(event) => {
+            const valor = event.target.value
+            setQuantidade(
+              valor === ''
+                ? ''
+                : String(Math.min(limiteQuantidade, Math.max(1, Number(valor) || 1))),
+            )
+          }}
+          onBlur={() => {
+            if (quantidade === '') setQuantidade('1')
+          }}
+          style={{ width: 80 }}
+        />
         {!carregandoEstoque && <small style={{ color: 'var(--text-muted)' }}>Disponível: {estoqueDisponivel}</small>}
-      </div>}
-      <button type="button" className={className} disabled={operando || carregandoEstoque || jaNoCarrinho || !temEstoque} onClick={(event) => { event.preventDefault(); event.stopPropagation(); prepararCompra() }}>{jaNoCarrinho ? 'No carrinho' : carregandoEstoque ? 'Verificando estoque...' : !temEstoque ? 'Sem estoque' : operando ? 'Adicionando...' : 'Adicionar ao carrinho'}</button>
+      </div>
+      <button type="button" className={className} disabled={processando || carregandoEstoque || !temEstoque} onClick={(event) => { event.preventDefault(); event.stopPropagation(); prepararCompra() }}>{carregandoEstoque ? 'Verificando estoque...' : !temEstoque ? 'Sem estoque' : processando ? 'Adicionando...' : 'Adicionar ao carrinho'}</button>
       {mensagem && <small role="status" style={{ display: 'block', marginTop: 8, color: 'var(--text-muted)' }}>{mensagem}</small>}
     </div>
   )

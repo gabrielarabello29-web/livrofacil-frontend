@@ -82,8 +82,8 @@ export default function AppRoutes() {
         <Route path="/cartoes" element={<ProtectedRoute><RotaClienteDetalhes secao="cartoes" /></ProtectedRoute>} />
         <Route path="/meus-pedidos" element={<ProtectedRoute requiredProfile="CLIENTE"><MeusPedidosPage /></ProtectedRoute>} />
         <Route path="/meus-pedidos/:id" element={<ProtectedRoute requiredProfile="CLIENTE"><MeuPedidoDetalhesPage /></ProtectedRoute>} />
-        <Route path="/trocas" element={<ProtectedRoute><MinhasTrocas /></ProtectedRoute>} />
-        <Route path="/trocas/nova" element={<ProtectedRoute><SolicitarTroca /></ProtectedRoute>} />
+        <Route path="/trocas" element={<ProtectedRoute requiredProfile="CLIENTE"><MinhasTrocas /></ProtectedRoute>} />
+        <Route path="/trocas/nova" element={<ProtectedRoute requiredProfile="CLIENTE"><SolicitarTroca /></ProtectedRoute>} />
 
         <Route path="/admin" element={<ProtectedRoute requiredProfile="ADMIN"><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/livros" element={<ProtectedRoute requiredProfile="ADMIN"><GerenciarLivrosPage /></ProtectedRoute>} />

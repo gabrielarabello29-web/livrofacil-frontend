@@ -7,6 +7,7 @@ import PaymentSplit from '@/features/checkout/components/PaymentSplit'
 import { pedidoService } from '@/features/pedidos/api/pedidoService'
 import { clienteService } from '@/features/cliente/api/clienteService'
 import { cupomService } from '@/features/cupom/api/cupomService'
+import { calcularIndiceNovoEndereco } from '@/features/checkout/api/checkoutApi'
 
 const etapas = ['Endereço', 'Pagamento', 'Resumo']
 
@@ -23,12 +24,28 @@ export default function Checkout() {
   const [splits, setSplits] = useState([])
   const [appliedCupons, setAppliedCupons] = useState([]) // array de códigos
   const [showNewAddressForm, setShowNewAddressForm] = useState(false)
-  const [novoEndereco, setNovoEndereco] = useState({ identificacao: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '' })
+  const [novoEndereco, setNovoEndereco] = useState({
+    identificacao: '',
+    tipoEndereco: '',
+    tipoResidencia: '',
+    logradouro: '',
+    tipoLogradouro: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
+    cep: '',
+    pais: '',
+    observacoes: '',
+    principal: false,
+  })
 
   const enderecos = usuario?.enderecos || []
+  const enderecoAtual = enderecos[enderecoSelecionado] || null
   const cartoes = usuario?.cartoes || []
-  const frete = subtotal > 150 ? 0 : 19.90
-  const total = subtotal + frete
+  const frete = null
+  const total = subtotal
 
   useEffect(() => {
     if (location?.state?.cupons) setAppliedCupons(location.state.cupons)
@@ -41,6 +58,12 @@ export default function Checkout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartoes, total])
 
+  function formatarEndereco(endereco) {
+    if (!endereco) return 'Endereço selecionado'
+    const tipo = endereco.tipoEndereco || endereco.tipoResidencia || 'Endereço'
+    return `${tipo}: ${endereco.logradouro || endereco.tipoLogradouro || 'Logradouro'}, ${endereco.numero || ''}${endereco.complemento ? ` - ${endereco.complemento}` : ''} - ${endereco.bairro || ''}, ${endereco.cidade || ''}/${endereco.estado || ''} - CEP ${endereco.cep || ''}`.replace(/\s+/g, ' ').trim()
+  }
+
   async function adicionarEnderecoInline() {
     // validações simples
     if (!novoEndereco.identificacao || !novoEndereco.logradouro || !novoEndereco.cep) {
@@ -48,13 +71,41 @@ export default function Checkout() {
       return
     }
     try {
-      const res = await clienteService.adicionarEndereco(usuario.id, novoEndereco)
-      // res.data expected to include created address; atualizar usuário em contexto
+      const payload = {
+        ...novoEndereco,
+        tipoEndereco: novoEndereco.tipoEndereco || novoEndereco.identificacao || 'Casa',
+        tipoResidencia: novoEndereco.tipoResidencia || novoEndereco.identificacao || 'Casa',
+        logradouro: novoEndereco.logradouro || novoEndereco.tipoLogradouro || '',
+        tipoLogradouro: novoEndereco.tipoLogradouro || novoEndereco.logradouro || '',
+        estado: String(novoEndereco.estado || '').trim().toUpperCase(),
+        cep: String(novoEndereco.cep || '').trim(),
+        pais: String(novoEndereco.pais || '').trim(),
+        observacoes: String(novoEndereco.observacoes || '').trim(),
+      }
+      const res = await clienteService.adicionarEndereco(usuario.id, payload)
       const enderecoCriado = res.data || res
-      atualizarUsuario({ enderecos: [...(usuario.enderecos || []), enderecoCriado] })
+      const proximoEnderecos = [...(usuario?.enderecos || []), enderecoCriado]
+      const indiceSelecionado = calcularIndiceNovoEndereco(proximoEnderecos, enderecoCriado)
+
+      atualizarUsuario({ enderecos: proximoEnderecos })
       setShowNewAddressForm(false)
-      setNovoEndereco({ identificacao: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '' })
-      setEnderecoSelecionado((usuario.enderecos || []).length) // selecionar o novo endereço
+      setNovoEndereco({
+        identificacao: '',
+        tipoEndereco: '',
+        tipoResidencia: '',
+        logradouro: '',
+        tipoLogradouro: '',
+        numero: '',
+        complemento: '',
+        bairro: '',
+        cidade: '',
+        estado: '',
+        cep: '',
+        pais: '',
+        observacoes: '',
+        principal: false,
+      })
+      setEnderecoSelecionado(indiceSelecionado)
       alert('Endereço adicionado')
     } catch (err) {
       console.error(err)
@@ -95,7 +146,8 @@ export default function Checkout() {
 
     const payload = {
       itens: itens.map(i => ({ produtoId: i.id, quantidade: i.quantidade, precoUnitario: i.preco })),
-      enderecoId: enderecos[enderecoSelecionado]?.id || null,
+      enderecoId: enderecoAtual?.id || null,
+      endereco: enderecoAtual,
       pagamentos: splits.map(s => {
         const base = { tipo: s.tipo, valor: Number(s.valor || 0) }
         if (s.tipo === 'cartao') base.cartaoId = s.cartaoId
@@ -111,7 +163,7 @@ export default function Checkout() {
       await pedidoService.criarPedido(payload)
       await new Promise(r => setTimeout(r, 800))
       limparCarrinho()
-      navigate('/compra-finalizada', { state: { total, formaPagamento: splits.map(s => s.tipo).join(','), endereco: enderecos[enderecoSelecionado] } })
+      navigate('/compra-finalizada', { state: { total, formaPagamento: splits.map(s => s.tipo).join(','), endereco: enderecoAtual } })
     } catch (err) {
       console.error(err)
       alert('Erro ao criar pedido. Tente novamente.')
@@ -281,6 +333,16 @@ export default function Checkout() {
                       </div>
                     ))}
                   </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, color: 'var(--primary)' }}>
+                      <span style={{ fontSize: 18 }}>⌖</span>
+                      <span>Entrega</span>
+                    </div>
+                    <div style={{ padding: 14, borderRadius: 8, background: '#F8F5FF', border: '1px solid #E9D5FF', color: 'var(--text)' }}>
+                      <strong style={{ display: 'block', marginBottom: 4 }}>{enderecoAtual?.tipoEndereco || 'Endereço de entrega'}</strong>
+                      <span style={{ display: 'block', lineHeight: 1.5 }}>{formatarEndereco(enderecoAtual)}</span>
+                    </div>
+                  </div>
                   <div style={{ display: 'flex', gap: 12, justifyContent: 'space-between', marginTop: 24 }}>
                     <button onClick={() => setEtapa(1)} className="btn-ghost">← Voltar</button>
                     <button onClick={finalizar} disabled={processando} className="btn-primary" style={{ padding: '11px 28px' }}>
@@ -303,7 +365,7 @@ export default function Checkout() {
                 ))}
                 <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span style={{ color: 'var(--text-muted)' }}>Frete</span>
-                  <span style={{ color: frete === 0 ? '#10B981' : 'inherit', fontWeight: 600 }}>{frete === 0 ? 'Grátis' : `R$ ${frete.toFixed(2).replace('.', ',')}`}</span>
+                  <span style={{ color: 'inherit', fontWeight: 600 }}>{frete == null ? 'A calcular' : `R$ ${Number(frete).toFixed(2).replace('.', ',')}`}</span>
                 </div>
                 <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 10, display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontWeight: 700, fontSize: 15 }}>Total</span>
