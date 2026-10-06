@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "format": "oxfmt",
-    "test": "vitest run"
+    "test": "vitest run",
+    "cy:open": "cypress open",
+    "cy:run": "cypress run"
   },
   "dependencies": {
     "react": "^19.0.0",

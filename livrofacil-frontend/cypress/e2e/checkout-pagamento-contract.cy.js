@@ -182,13 +182,21 @@ describe('Checkout — contrato de pagamentos e cupons', () => {
     })
   })
 
-  it('4. divide o pagamento em dois cartões e leva ambos para revisão', () => {
+  it('4. divide a compra entre dois cartões, respeita o mínimo e finaliza o pagamento', () => {
     prepararCheckout()
     cy.contains('button', '+ Dividir pagamento').click()
     cy.get('[data-testid="valor-pagamento-1"]').should('have.value', '59.95')
     cy.get('[data-testid="valor-pagamento-2"]').should('have.value', '59.95')
+    cy.get('[data-testid="valor-pagamento-1"]').invoke('val').then(Number).should('be.gte', 10)
+    cy.get('[data-testid="valor-pagamento-2"]').invoke('val').then(Number).should('be.gte', 10)
     avancarARevisao()
     cy.get('.checkout-review-payments > div').should('have.length', 2)
+    cy.contains('button', '✓ Confirmar e pagar').click()
+    cy.wait('@finalizarPedido').its('request.body.pagamentos').should('deep.equal', [
+      { formaPagamentoId: 4, valor: 59.95, parcelas: 1 },
+      { formaPagamentoId: 5, valor: 59.95, parcelas: 1 },
+    ])
+    cy.location('pathname').should('eq', '/checkout/sucesso')
   })
 
   it('5. rejeita cartão abaixo de R$ 10,00 sem cupom', () => {

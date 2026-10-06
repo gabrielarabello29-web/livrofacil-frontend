@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { obterEstoqueDisponivel, useCarrinho } from '@/features/carrinho/context/CarrinhoContext'
 import LivroCover from '@/features/livros/components/LivroCover'
 
@@ -6,6 +6,16 @@ export default function CarrinhoItem({ item }) {
   const { atualizarQuantidade, removerItem } = useCarrinho()
   const estoqueDisponivel = obterEstoqueDisponivel(item)
   const atingiuEstoque = estoqueDisponivel !== null && item.quantidade >= estoqueDisponivel
+  const [erroQuantidade, setErroQuantidade] = useState('')
+
+  async function alterarQuantidade(quantidade) {
+    setErroQuantidade('')
+    try {
+      await atualizarQuantidade(item.id, quantidade)
+    } catch (error) {
+      setErroQuantidade(error?.mensagem || 'Não foi possível atualizar a quantidade.')
+    }
+  }
 
   const botaoBase = {
     border: 'none',
@@ -32,7 +42,7 @@ export default function CarrinhoItem({ item }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', rowGap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #E5E7EB', borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
             <button
-              onClick={() => atualizarQuantidade(item.id, Math.max(1, item.quantidade - 1))}
+              onClick={() => alterarQuantidade(Math.max(1, item.quantidade - 1))}
               disabled={item.quantidade <= 1}
               style={{
                 ...botaoBase,
@@ -44,7 +54,7 @@ export default function CarrinhoItem({ item }) {
             >−</button>
             <span style={{ minWidth: 46, textAlign: 'center', padding: '0 10px', fontSize: 14, fontWeight: 700, color: 'var(--text)', borderLeft: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', height: 38, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{item.quantidade}</span>
             <button
-              onClick={() => atualizarQuantidade(item.id, item.quantidade + 1)}
+              onClick={() => alterarQuantidade(item.quantidade + 1)}
               disabled={atingiuEstoque}
               style={{
                 ...botaoBase,
@@ -56,6 +66,7 @@ export default function CarrinhoItem({ item }) {
             >+</button>
           </div>
           {estoqueDisponivel !== null && <small style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Estoque: {estoqueDisponivel}</small>}
+          {erroQuantidade && <small role="alert" style={{ color: 'var(--danger)' }}>{erroQuantidade}</small>}
           <button onClick={() => removerItem(item.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>

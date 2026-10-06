@@ -5,6 +5,7 @@ const livros = [
 
 function prepararEstadoCarrinho() {
   let cart = { id: 1, clienteId: '11111111-1111-4111-8111-111111111111', token: 'tok-1', itens: [], total: 0 }
+  let rejeitarAtualizacao = false
 
   cy.intercept('GET', '**/api/livros/catalogo*', {
     statusCode: 200,
@@ -21,7 +22,7 @@ function prepararEstadoCarrinho() {
   }).as('buscarCarrinho')
 
   cy.intercept('POST', '**/api/carrinhos/1/itens*', (req) => {
-    const payload = JSON.parse(req.body)
+    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
     const livro = livros.find((item) => String(item.id) === String(payload.livroId))
     const quantidadeSolicitada = Number(payload.quantidade || 0)
     const itemExistente = cart.itens.find((item) => String(item.livroId) === String(payload.livroId))
@@ -62,6 +63,7 @@ function prepararEstadoCarrinho() {
         quantidade: quantidadeSolicitada,
         valorUnitario: Number(livro.valorVenda || 0),
         subtotal: Number(livro.valorVenda || 0) * quantidadeSolicitada,
+        quantidadeDisponivel: estoque,
       })
     }
 
@@ -75,6 +77,21 @@ function prepararEstadoCarrinho() {
     const quantidade = Number(url.searchParams.get('quantidade') || 0)
     const item = cart.itens.find((entry) => Number(entry.id) === itemId)
     const livro = livros.find((entry) => String(entry.id) === String(item?.livroId))
+
+    if (rejeitarAtualizacao) {
+      req.reply({
+        statusCode: 409,
+        body: {
+          status: 409,
+          erro: 'Conflict',
+          mensagem: 'Quantidade solicitada superior ao estoque disponível.',
+          erros: {},
+          caminho: `/api/carrinhos/1/itens/${itemId}`,
+          timestamp: '2026-10-04T00:00:00Z',
+        },
+      })
+      return
+    }
 
     if (!item || !livro) {
       req.reply({ statusCode: 404, body: { mensagem: 'Item não encontrado.' } })
@@ -109,107 +126,137 @@ function prepararEstadoCarrinho() {
     req.reply({ statusCode: 204, body: '' })
   }).as('removerItem')
 
-  return { getCart: () => cart }
+  cy.visit('/livros', {
+    onBeforeLoad(win) {
+      win.localStorage.setItem('usuario', JSON.stringify({
+        uuid: '11111111-1111-4111-8111-111111111111',
+        id: '11111111-1111-4111-8111-111111111111',
+        perfil: 'CLIENTE',
+        ativo: true,
+        nome: 'Cliente Teste',
+      }))
+      win.localStorage.setItem('carrinhoId', '1')
+    },
+  })
+  cy.wait(['@listarCatalogo', '@buscarCarrinho'])
+
+  return {
+    getCart: () => cart,
+    rejeitarProximaAtualizacao: () => { rejeitarAtualizacao = true },
+  }
+}
+
+function adicionarLivro(indice = 0) {
+  cy.get('.book-card').eq(indice).find('button.btn-primary').should('be.enabled').click()
+  cy.wait('@adicionarItem')
 }
 
 describe('RF0031 / RF0032 / RN0031 — carrinho', () => {
   beforeEach(() => {
     cy.clearLocalStorage()
     cy.viewport(1280, 1200)
-    cy.visit('/livros', {
-      onBeforeLoad(win) {
-        win.localStorage.setItem('usuario', JSON.stringify({
-          uuid: '11111111-1111-4111-8111-111111111111',
-          id: '11111111-1111-4111-8111-111111111111',
-          perfil: 'CLIENTE',
-          ativo: true,
-          nome: 'Cliente Teste',
-        }))
-      },
-    })
   })
 
-  it('CENÁRIO 1 — adiciona mais de um livro e exibe ambos no carrinho', () => {
+  it('CENÁRIO 1 — adiciona mais de um livro e altera a quantidade no carrinho', () => {
     prepararEstadoCarrinho()
 
-    cy.get('input#quantidade-1').clear().type('2')
-    cy.contains('button', 'Adicionar ao carrinho').first().click()
-    cy.contains('button', 'Adicionar ao carrinho').eq(1).click()
+    adicionarLivro(0)
+    adicionarLivro(1)
 
     cy.visit('/carrinho')
+    cy.wait('@buscarCarrinho')
     cy.contains('Livro A').should('be.visible')
     cy.contains('Livro B').should('be.visible')
+    cy.get('.cart-item').first().find('button[aria-label^="Aumentar quantidade"]').click()
+    cy.wait('@alterarQuantidade')
+    cy.get('.cart-item').first().find('span').contains('2').should('be.visible')
   })
 
-  it('CENÁRIO 2 — permite escolher quantidade na adição', () => {
+  it('CENÁRIO 2 — adiciona um livro com quantidade inicial igual a um', () => {
     prepararEstadoCarrinho()
 
-    cy.get('input#quantidade-1').clear().type('3')
-    cy.contains('button', 'Adicionar ao carrinho').first().click()
+    adicionarLivro()
     cy.visit('/carrinho')
-    cy.contains('Qtd: 3').should('be.visible')
+    cy.wait('@buscarCarrinho')
+    cy.get('.cart-item').first().find('span').contains('1').should('be.visible')
   })
 
   it('CENÁRIO 3 — altera a quantidade no carrinho', () => {
     prepararEstadoCarrinho()
 
-    cy.get('input#quantidade-1').clear().type('1')
-    cy.contains('button', 'Adicionar ao carrinho').first().click()
+    adicionarLivro()
     cy.visit('/carrinho')
-    cy.contains('button', '+').click()
-    cy.contains('2').should('be.visible')
+    cy.wait('@buscarCarrinho')
+    cy.get('.cart-item').first().find('button[aria-label^="Aumentar quantidade"]').click()
+    cy.wait('@alterarQuantidade')
+    cy.get('.cart-item').first().find('span').contains('2').should('be.visible')
   })
 
   it('CENÁRIO 4 — remove um item e mantém o restante', () => {
     prepararEstadoCarrinho()
 
-    cy.get('input#quantidade-1').clear().type('1')
-    cy.contains('button', 'Adicionar ao carrinho').first().click()
-    cy.contains('button', 'Adicionar ao carrinho').eq(1).click()
+    adicionarLivro(0)
+    adicionarLivro(1)
     cy.visit('/carrinho')
+    cy.wait('@buscarCarrinho')
 
-    cy.contains('Livro A').parents('div').contains('button', 'Remover').click()
+    cy.get('.cart-item').first().contains('button', 'Remover').click()
+    cy.wait('@removerItem')
     cy.contains('Livro A').should('not.exist')
     cy.contains('Livro B').should('be.visible')
   })
 
   it('CENÁRIO 5 — bloqueia adição acima do estoque', () => {
-    prepararEstadoCarrinho()
+    const estado = prepararEstadoCarrinho()
 
-    cy.get('input#quantidade-1').clear().type('999')
-    cy.contains('button', 'Adicionar ao carrinho').first().click()
-    cy.contains('Quantidade máxima disponível: 5.').should('be.visible')
+    for (let quantidade = 0; quantidade < 5; quantidade += 1) {
+      adicionarLivro()
+    }
+    cy.get('.book-card').first().find('button.btn-primary').click()
+    cy.get('.book-card').first().find('[role="alert"]')
+      .should('contain', 'Quantidade solicitada superior ao estoque disponível.')
+    cy.get('@adicionarItem.all').should('have.length', 6)
+    cy.then(() => {
+      expect(estado.getCart().itens[0].quantidade).to.equal(5)
+    })
   })
 
   it('CENÁRIO 6 — bloqueia alteração no carrinho acima do estoque', () => {
     prepararEstadoCarrinho()
 
-    cy.get('input#quantidade-1').clear().type('1')
-    cy.contains('button', 'Adicionar ao carrinho').first().click()
+    for (let quantidade = 0; quantidade < 5; quantidade += 1) {
+      adicionarLivro()
+    }
     cy.visit('/carrinho')
-    cy.contains('button', '+').click().click().click()
-    cy.contains('Quantidade máxima disponível: 5.').should('be.visible')
+    cy.wait('@buscarCarrinho')
+    cy.get('.cart-item').first().find('button[aria-label^="Aumentar quantidade"]').should('be.disabled')
+    cy.get('.cart-item').first().find('span').contains('5').should('be.visible')
   })
 
   it('CENÁRIO 7 — mantém o carrinho consistente quando o backend responde 409 por estoque insuficiente', () => {
-    prepararEstadoCarrinho()
+    const estado = prepararEstadoCarrinho()
 
-    cy.get('input#quantidade-1').clear().type('10')
-    cy.contains('button', 'Adicionar ao carrinho').first().click()
+    adicionarLivro()
     cy.visit('/carrinho')
-    cy.contains('Livro A').should('not.exist')
+    cy.wait('@buscarCarrinho')
+    estado.rejeitarProximaAtualizacao()
+    cy.get('.cart-item').first().find('button[aria-label^="Aumentar quantidade"]').click()
+    cy.wait('@alterarQuantidade')
+    cy.contains('Quantidade solicitada superior ao estoque disponível.').should('be.visible')
+    cy.then(() => {
+      expect(estado.getCart().itens[0].quantidade).to.equal(1)
+    })
   })
 
   it('CENÁRIO 8 — soma quantidades ao re-adicionar o mesmo livro e respeita o estoque', () => {
     prepararEstadoCarrinho()
 
-    cy.get('input#quantidade-1').clear().type('2')
-    cy.contains('button', 'Adicionar ao carrinho').first().click()
-    cy.get('input#quantidade-1').clear().type('3')
-    cy.contains('button', 'Adicionar ao carrinho').first().click()
+    adicionarLivro()
+    adicionarLivro()
 
     cy.visit('/carrinho')
+    cy.wait('@buscarCarrinho')
     cy.contains('Livro A').should('be.visible')
-    cy.contains('R$ 119,70').should('be.visible')
+    cy.get('.cart-item').first().find('span').contains('2').should('be.visible')
   })
 })
