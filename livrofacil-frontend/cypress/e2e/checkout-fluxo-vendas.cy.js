@@ -60,6 +60,7 @@ function prepararAPIs({ enderecos = [enderecoExistente], cartoes = [cartaoExiste
   let listaEnderecos = [...enderecos]
   let listaCartoes = [...cartoes]
   let pedidoAtual = criarPedido()
+  let vouchersCliente = []
 
   cy.intercept('GET', `**/api/clientes/${clienteId}/enderecos`, (req) => {
     req.reply({ statusCode: 200, body: listaEnderecos })
@@ -122,12 +123,76 @@ function prepararAPIs({ enderecos = [enderecoExistente], cartoes = [cartaoExiste
     req.reply({ statusCode: 200, body: pedidoAtual })
   }).as('buscarPedido')
 
-  cy.intercept('POST', `**/api/pedidos/${pedidoId}/finalizar?clienteId=*`, (req) => {
+  cy.intercept('POST', '**/api/cupons/validar', (req) => {
+    expect(req.body.codigo).to.equal('VALE150')
     req.reply({
       statusCode: 200,
-      body: { ...pedidoAtual, status: 'EM_PROCESSAMENTO', pagamentos: req.body.pagamentos },
+      body: {
+        valido: true,
+        tipo: 'FIXO',
+        valor: 150,
+        voucherValor: 150,
+        voucherResgatadoEm: null,
+        codigo: 'VALE150',
+        mensagem: 'Voucher válido',
+      },
+    })
+  }).as('validarVoucher')
+
+  cy.intercept('POST', `**/api/pedidos/${pedidoId}/cupons?clienteId=*`, (req) => {
+    expect(req.body.codigo).to.equal('VALE150')
+    pedidoAtual = {
+      ...pedidoAtual,
+      cupom: 'VALE150',
+      desconto: 119.9,
+      total: 0,
+    }
+    req.reply({ statusCode: 200, body: pedidoAtual })
+  }).as('aplicarVoucher')
+
+  cy.intercept('POST', `**/api/pedidos/${pedidoId}/finalizar?clienteId=*`, (req) => {
+    const voucherSaldoGerado = pedidoAtual.cupom === 'VALE150'
+      ? {
+          id: 812,
+          codigo: 'TR-NOVO-CODIGO',
+          valor: 30.1,
+          criadoEm: '2026-10-06T13:00:00',
+          resgatadoEm: null,
+          pedidoResgateId: null,
+        }
+      : null
+    if (voucherSaldoGerado) {
+      vouchersCliente = [
+        {
+          id: 811,
+          codigo: 'VALE150',
+          valor: 0,
+          criadoEm: '2026-10-01T12:00:00',
+          resgatadoEm: '2026-10-06T13:00:00',
+          pedidoResgateId: pedidoId,
+        },
+        voucherSaldoGerado,
+      ]
+    }
+    req.reply({
+      statusCode: 200,
+      body: {
+        ...pedidoAtual,
+        status: 'EM_PROCESSAMENTO',
+        pagamentos: req.body.pagamentos,
+        voucherSaldoGerado,
+      },
     })
   }).as('finalizarPedido')
+
+  cy.intercept('GET', `**/api/trocas/cliente/${clienteId}`, {
+    statusCode: 200,
+    body: [],
+  }).as('listarTrocasCliente')
+
+  cy.intercept('GET', `**/api/trocas/cliente/${clienteId}/vouchers`, (req) => {
+    req.reply({ statusCode: 200, body: vouchersCliente })
+  }).as('listarVouchersCliente')
 
   cy.visit('/checkout/endereco', {
     onBeforeLoad(win) {
@@ -245,13 +310,43 @@ describe('Demonstração funcional do fluxo de vendas', () => {
     concluirCompra()
   })
 
-  it.skip('emite e incorpora ao perfil novo voucher com a diferença quando o voucher supera a compra (bloqueado pelo contrato atual do backend)', () => {
+  it('emite voucher com a diferença e o disponibiliza no perfil quando o voucher supera a compra', () => {
     prepararAPIs()
+
+    cy.contains('button', 'Continuar').click()
+    cy.wait('@iniciarPedido')
+    cy.location('pathname').should('eq', '/checkout/pagamento')
     cy.get('[data-testid="codigo-cupom"]').type('VALE150')
     cy.get('[data-testid="aplicar-cupom"]').click()
+    cy.wait('@validarVoucher')
+    cy.wait('@aplicarVoucher').then(({ response }) => {
+      expect(response.body).to.include({ desconto: 119.9, frete: 19.9, total: 0 })
+    })
+    cy.contains('O cupom ou voucher cobriu o valor total do pedido.').should('be.visible')
 
-    // O backend atual mantém saldo no voucher original e não retorna um novo voucher emitido.
-    // Reativar quando o backend implementar a emissão e definir o contrato da resposta.
-    cy.get('[data-testid="voucher-emitido"]').should('contain', 'R$ 30,10')
+    cy.get('[data-testid="revisar-pedido"]').click()
+    cy.location('pathname').should('eq', '/checkout/revisao')
+    cy.contains('button', '✓ Confirmar e pagar').click()
+    cy.wait('@finalizarPedido').then(({ request, response }) => {
+      expect(request.body).to.deep.equal({ carrinhoId, pagamentos: [] })
+      expect(response.body).to.include({ status: 'EM_PROCESSAMENTO', total: 0 })
+      expect(response.body.voucherSaldoGerado).to.include({
+        codigo: 'TR-NOVO-CODIGO',
+        valor: 30.1,
+        resgatadoEm: null,
+      })
+    })
+    cy.location('pathname').should('eq', '/checkout/sucesso')
+    cy.contains('Status: Em processamento').should('be.visible')
+
+    cy.visit('/trocas')
+    cy.wait(['@listarTrocasCliente', '@listarVouchersCliente'])
+    cy.get('[data-testid="voucher-perfil"]').should('have.length', 2)
+    cy.contains('[data-testid="voucher-perfil"]', 'VALE150')
+      .should('contain', 'Resgatado')
+      .and('contain', 'R$ 0,00')
+    cy.contains('[data-testid="voucher-perfil"]', 'TR-NOVO-CODIGO')
+      .should('contain', 'Disponível')
+      .and('contain', 'R$ 30,10')
   })
 })

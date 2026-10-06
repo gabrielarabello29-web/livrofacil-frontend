@@ -13,6 +13,7 @@ export default function MinhasTrocas() {
   const { usuario } = useAuth()
   const clienteId = obterClienteId(usuario)
   const [trocas, setTrocas] = useState([])
+  const [vouchers, setVouchers] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
 
@@ -25,9 +26,14 @@ export default function MinhasTrocas() {
     setCarregando(true)
     setErro('')
     try {
-      const resposta = await trocaService.listarTrocasCliente(clienteId)
-      const lista = Array.isArray(resposta) ? resposta : Array.isArray(resposta?.data) ? resposta.data : []
-      setTrocas(lista)
+      const [respostaTrocas, respostaVouchers] = await Promise.all([
+        trocaService.listarTrocasCliente(clienteId),
+        trocaService.listarVouchersCliente(clienteId),
+      ])
+      const listaTrocas = Array.isArray(respostaTrocas) ? respostaTrocas : Array.isArray(respostaTrocas?.data) ? respostaTrocas.data : []
+      const listaVouchers = Array.isArray(respostaVouchers) ? respostaVouchers : Array.isArray(respostaVouchers?.data) ? respostaVouchers.data : []
+      setTrocas(listaTrocas)
+      setVouchers(listaVouchers)
     } catch (error) {
       setErro(error?.mensagem || 'Não foi possível carregar suas trocas.')
     } finally {
@@ -51,6 +57,34 @@ export default function MinhasTrocas() {
               </div>
               <Link to="/trocas/nova" className="btn-primary">Solicitar troca</Link>
             </div>
+
+            {!carregando && !erro && (
+              <section className="card" style={{ padding: 20, marginBottom: 24 }}>
+                <h2 style={{ margin: '0 0 12px', fontSize: 18 }}>Meus vouchers de troca</h2>
+                {vouchers.length === 0 ? (
+                  <p style={{ margin: 0, color: 'var(--text-muted)' }}>Você ainda não possui vouchers de troca.</p>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {vouchers.map((voucher) => {
+                      const resgatado = Boolean(voucher.resgatadoEm) || Number(voucher.valor) === 0
+                      return (
+                        <div
+                          key={voucher.id || voucher.codigo}
+                          data-testid="voucher-perfil"
+                          style={{ padding: 12, borderRadius: 8, border: '1px solid #F3F4F6' }}
+                        >
+                          <strong>{voucher.codigo}</strong>
+                          <span style={{ marginLeft: 8 }} className={`badge ${resgatado ? 'badge-gray' : 'badge-green'}`}>
+                            {resgatado ? 'Resgatado' : 'Disponível'}
+                          </span>
+                          <div>Saldo: R$ {Number(voucher.valor || 0).toFixed(2).replace('.', ',')}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
 
             {carregando && <div className="card" style={{ padding: 24 }}>Carregando solicitações...</div>}
             {erro && <div className="card account-feedback account-feedback-error" role="alert">{erro}<button className="btn-secondary" onClick={carregar}>Tentar novamente</button></div>}
