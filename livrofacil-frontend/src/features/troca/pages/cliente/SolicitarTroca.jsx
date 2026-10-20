@@ -124,66 +124,94 @@ export default function SolicitarTroca() {
   return (
     <div>
       <Header />
-      <main className="page-container" style={{ paddingTop: 40, paddingBottom: 80 }}>
-        <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start' }}>
+      <main className="page-container troca-request-page">
+        <div className="troca-request-layout">
           <ClienteSidebar />
-          <div style={{ flex: 1, maxWidth: 720 }}>
-            <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800 }}>Solicitar troca ou devolução</h1>
-            <p style={{ margin: '0 0 24px', fontSize: 14, color: 'var(--text-muted)' }}>Solicitações podem ser feitas até o fim do sétimo dia corrido após a entrega, no fuso de São Paulo. A API confirma a elegibilidade.</p>
+          <section className="troca-request-content">
+            <header className="troca-request-heading">
+              <span className="troca-request-icon" aria-hidden="true">↺</span>
+              <div>
+                <p className="troca-request-eyebrow">ATENDIMENTO AO CLIENTE</p>
+                <h1>Solicitar troca ou devolução</h1>
+                <p>Preencha os dados abaixo para iniciar sua solicitação.</p>
+              </div>
+            </header>
 
-            <form className="card" onSubmit={enviarSolicitacao} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, fontWeight: 600 }}>
-                Pedido
-                <select required data-testid="troca-pedido" value={pedidoId} onChange={(event) => { setPedidoId(event.target.value); setProduto(''); setQuantidade('1') }} disabled={carregando || pedidos.length === 0}>
-                  <option value="">{carregando ? 'Carregando pedidos...' : 'Selecione um pedido entregue elegível'}</option>
-                  {pedidos.map((item) => <option key={item.id} value={item.id}>Pedido #{item.id} · Entregue em {String(item.entregueEm).slice(0, 10).split('-').reverse().join('/')}</option>)}
-                </select>
-                {!carregando && !erro && pedidos.length === 0 && <small role="status">Nenhum pedido com entrega registrada dentro do prazo. Pedidos antigos sem data de entrega são inelegíveis; procure o suporte.</small>}
-              </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, fontWeight: 600 }}>
-                Produto
-                <select required data-testid="troca-item" value={produto} onChange={(event) => { setProduto(event.target.value); setQuantidade('1') }} disabled={!pedidoSelecionado || itens.length === 0}>
-                  <option value="">Selecione um item do pedido</option>
-                  {itens.map((item, index) => {
-                    const referencia = referenciaProduto(item)
-                    const disponivel = quantidadeDisponivelTroca(item, solicitacoes)
-                    return <option key={referencia || index} value={referencia} disabled={!disponivel || !referencia}>{item.titulo || item.livro?.titulo || 'Título não informado'} · disponível {disponivel}</option>
-                  })}
-                </select>
-              </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, fontWeight: 600 }}>
-                Tipo
-                <select data-testid="troca-tipo" required value={tipo} onChange={(event) => setTipo(event.target.value)}>
-                  <option value="TROCA">Troca</option>
-                  <option value="DEVOLUCAO">Devolução</option>
-                </select>
-              </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, fontWeight: 600 }}>
-                Quantidade
-                <input data-testid="troca-quantidade" required type="number" min="1" max={quantidadeMaxima || undefined} step="1" value={quantidade} onChange={(event) => setQuantidade(event.target.value)} disabled={!itemSelecionado || quantidadeMaxima < 1} />
-                {itemSelecionado && <small>Disponível para solicitar: {quantidadeMaxima}</small>}
-              </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, fontWeight: 600 }}>
-                Motivo
-                <select required data-testid="troca-motivo" value={motivo} onChange={event => setMotivo(event.target.value)}>
-                  <option value="">Selecione um motivo</option>
-                  <option>Produto danificado</option>
-                  <option>Produto incorreto</option>
-                  <option>Arrependimento</option>
-                  <option>Outro</option>
-                </select>
-              </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, fontWeight: 600 }}>
-                Detalhes adicionais
-                <textarea value={detalhes} onChange={event => setDetalhes(event.target.value)} rows="4" placeholder="Descreva o que aconteceu" />
-              </label>
+            <div className="troca-request-notice">
+              <span aria-hidden="true">ⓘ</span>
+              <p>Você pode solicitar até 7 dias corridos após a entrega. A elegibilidade do pedido será confirmada no envio.</p>
+            </div>
+
+            <form className="card troca-request-form" onSubmit={enviarSolicitacao}>
+              <div className="troca-form-section">
+                <div className="troca-form-section-heading">
+                  <span>1</span>
+                  <div><h2>Identifique seu pedido</h2><p>Escolha o pedido e o produto que deseja solicitar.</p></div>
+                </div>
+                <div className="troca-form-grid">
+                  <label className="troca-field">
+                    <span>Pedido <i>*</i></span>
+                    <select className="troca-control" required data-testid="troca-pedido" value={pedidoId} onChange={(event) => { setPedidoId(event.target.value); setProduto(''); setQuantidade('1') }} disabled={carregando || pedidos.length === 0}>
+                      <option value="">{carregando ? 'Carregando pedidos...' : 'Selecione um pedido'}</option>
+                      {pedidos.map((item) => <option key={item.id} value={item.id}>Pedido #{item.id} · Entregue em {String(item.entregueEm).slice(0, 10).split('-').reverse().join('/')}</option>)}
+                    </select>
+                    {!carregando && !erro && pedidos.length === 0 && <small role="status">Nenhum pedido com entrega registrada dentro do prazo. Pedidos antigos sem data de entrega são inelegíveis; procure o suporte.</small>}
+                  </label>
+                  <label className="troca-field">
+                    <span>Produto <i>*</i></span>
+                    <select className="troca-control" required data-testid="troca-item" value={produto} onChange={(event) => { setProduto(event.target.value); setQuantidade('1') }} disabled={!pedidoSelecionado || itens.length === 0}>
+                      <option value="">Selecione um item do pedido</option>
+                      {itens.map((item, index) => {
+                        const referencia = referenciaProduto(item)
+                        const disponivel = quantidadeDisponivelTroca(item, solicitacoes)
+                        return <option key={referencia || index} value={referencia} disabled={!disponivel || !referencia}>{item.titulo || item.livro?.titulo || 'Título não informado'} · disponível {disponivel}</option>
+                      })}
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div className="troca-form-section">
+                <div className="troca-form-section-heading">
+                  <span>2</span>
+                  <div><h2>Sobre a solicitação</h2><p>Conte para nós como podemos ajudar.</p></div>
+                </div>
+                <div className="troca-form-grid">
+                  <label className="troca-field">
+                    <span>Tipo de solicitação <i>*</i></span>
+                    <select className="troca-control" data-testid="troca-tipo" required value={tipo} onChange={(event) => setTipo(event.target.value)}>
+                      <option value="TROCA">Troca</option>
+                      <option value="DEVOLUCAO">Devolução</option>
+                    </select>
+                  </label>
+                  <label className="troca-field">
+                    <span>Quantidade <i>*</i></span>
+                    <input className="troca-control" data-testid="troca-quantidade" required type="number" min="1" max={quantidadeMaxima || undefined} step="1" value={quantidade} onChange={(event) => setQuantidade(event.target.value)} disabled={!itemSelecionado || quantidadeMaxima < 1} />
+                    {itemSelecionado && <small>Disponível para solicitar: {quantidadeMaxima}</small>}
+                  </label>
+                  <label className="troca-field troca-field-full">
+                    <span>Motivo <i>*</i></span>
+                    <select className="troca-control" required data-testid="troca-motivo" value={motivo} onChange={event => setMotivo(event.target.value)}>
+                      <option value="">Selecione um motivo</option>
+                      <option>Produto danificado</option>
+                      <option>Produto incorreto</option>
+                      <option>Arrependimento</option>
+                      <option>Outro</option>
+                    </select>
+                  </label>
+                  <label className="troca-field troca-field-full">
+                    <span>Detalhes adicionais <small>(opcional)</small></span>
+                    <textarea className="troca-control troca-details" value={detalhes} onChange={event => setDetalhes(event.target.value)} rows="4" placeholder="Descreva o que aconteceu para nos ajudar a resolver mais rápido" />
+                  </label>
+                </div>
+              </div>
               {erro && <div role="alert" className="checkout-error">{erro}</div>}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
+              <div className="troca-form-actions">
                 <Link to="/trocas" className="btn-secondary">Cancelar</Link>
                 <button type="submit" data-testid="enviar-solicitacao-troca" className="btn-primary" disabled={enviando || carregando || pedidos.length === 0 || !quantidadeValida}>{enviando ? 'Enviando...' : 'Enviar solicitação'}</button>
               </div>
             </form>
-          </div>
+          </section>
         </div>
       </main>
       <Footer />

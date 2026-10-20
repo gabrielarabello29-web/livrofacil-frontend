@@ -793,7 +793,7 @@ export default function CheckoutPagamentoPage() {
               style={{ display: "flex", gap: 8, alignItems: "end", marginTop: 20 }}
             >
               <label className="label" style={{ flex: 1, margin: 0 }}>
-                Benefício único (promoção ou voucher de troca)
+                Cupom / voucher
                 <input
                   className="input-field"
                   value={codigoCupom}
@@ -814,15 +814,8 @@ export default function CheckoutPagamentoPage() {
               </button>
             </form>
             <p data-testid="regra-voucher-frete" style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              É permitido somente um benefício por pedido. O voucher reduz apenas os produtos do subtotal, nunca o frete; qualquer frete restante deve ser pago pelos cartões selecionados. Aplicar outro código substitui o benefício informado, sem combinar descontos.
             </p>
-            {pedido.subtotal != null && (
-              <div data-testid="resumo-valores-checkout" style={{ fontSize: 13, borderTop: "1px solid #F3F4F6", paddingTop: 10 }}>
-                <div>Produtos (subtotal elegível): R$ {Number(pedido.subtotal).toFixed(2).replace(".", ",")}</div>
-                <div>Desconto do benefício: − R$ {Number(pedido.desconto || 0).toFixed(2).replace(".", ",")}</div>
-                <div>Frete a pagar separadamente: R$ {Number(pedido.frete || 0).toFixed(2).replace(".", ",")}</div>
-              </div>
-            )}
+
             {cupomAplicado && (
               <p role="status" style={{ color: "var(--success)" }}>
                 Código aplicado: {cupomAplicado}

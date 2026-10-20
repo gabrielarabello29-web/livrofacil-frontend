@@ -482,31 +482,6 @@ export default function CheckoutEnderecoPage() {
               onSubmit={(event) => { event.preventDefault(); validarCupomInicial() }}
               className="checkout-initial-coupon"
             >
-              <label className="label" htmlFor="checkout-cupom-inicial">
-                Cupom promocional (opcional)
-                <input
-                  id="checkout-cupom-inicial"
-                  className="input-field"
-                  value={codigoCupom}
-                  data-testid="codigo-cupom-inicial"
-                  onChange={(event) => {
-                    setCodigoCupom(event.target.value.toUpperCase())
-                    setCupomInicial(null)
-                    setErro("")
-                  }}
-                  placeholder="Digite o código promocional"
-                  autoComplete="off"
-                  disabled={validandoCupom || salvando}
-                />
-              </label>
-              <button
-                className="btn-secondary"
-                type="submit"
-                data-testid="validar-cupom-inicial"
-                disabled={validandoCupom || salvando || !codigoCupom.trim()}
-              >
-                {validandoCupom ? "Validando..." : cupomInicial ? "Cupom validado" : "Validar cupom"}
-              </button>
             </form>
             {!carregando && enderecos.length === 0 && (
               <div className="checkout-empty-address">
