@@ -25,6 +25,8 @@ import ClienteDetalhes from '@/features/cliente/pages/ClienteDetalhes'
 import Historico from '@/features/cliente/pages/Historico'
 import MinhasTrocas from '@/features/troca/pages/cliente/MinhasTrocas'
 import SolicitarTroca from '@/features/troca/pages/cliente/SolicitarTroca'
+import TrocaDetalhe from '@/features/troca/pages/cliente/TrocaDetalhe'
+import MeusCupons from '@/features/troca/pages/cliente/MeusCupons'
 
 import AdminDashboard from '@/features/analise/pages/Dashboard'
 import GerenciarLivrosPage from '@/features/livros/pages/GerenciarLivrosPage'
@@ -84,6 +86,9 @@ export default function AppRoutes() {
         <Route path="/meus-pedidos/:id" element={<ProtectedRoute requiredProfile="CLIENTE"><MeuPedidoDetalhesPage /></ProtectedRoute>} />
         <Route path="/trocas" element={<ProtectedRoute requiredProfile="CLIENTE"><MinhasTrocas /></ProtectedRoute>} />
         <Route path="/trocas/nova" element={<ProtectedRoute requiredProfile="CLIENTE"><SolicitarTroca /></ProtectedRoute>} />
+        <Route path="/trocas/:trocaId" element={<ProtectedRoute requiredProfile="CLIENTE"><TrocaDetalhe /></ProtectedRoute>} />
+        <Route path="/meus-cupons" element={<ProtectedRoute requiredProfile="CLIENTE"><MeusCupons /></ProtectedRoute>} />
+        <Route path="/meus-cupons/:voucherId" element={<ProtectedRoute requiredProfile="CLIENTE"><MeusCupons /></ProtectedRoute>} />
 
         <Route path="/admin" element={<ProtectedRoute requiredProfile="ADMIN"><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/livros" element={<ProtectedRoute requiredProfile="ADMIN"><GerenciarLivrosPage /></ProtectedRoute>} />

@@ -230,14 +230,16 @@ describe('Checkout — contrato de pagamentos e cupons', () => {
     cy.contains('Total').parent().should('contain', 'R$ 109,90')
   })
 
-  it('8. impede aplicar um segundo cupom promocional ao mesmo pedido', () => {
+  it('8. permite trocar o benefício atual sem combinar descontos ou enviar uma lista', () => {
     prepararCheckout()
     aplicarCupom('PROMO10')
+    cy.get('[data-testid="codigo-cupom"]').should('be.visible')
     cy.get('[data-testid="codigo-cupom"]').type('PROMO5')
     cy.get('[data-testid="aplicar-cupom"]').click()
     cy.wait('@validarCupom')
-    cy.get('[role="alert"]').should('contain', 'Só é permitido um cupom promocional por pedido')
-    cy.get('@aplicarCupom.all').should('have.length', 1)
+    cy.wait('@aplicarCupom').its('request.body').should('deep.equal', { codigo: 'PROMO5' })
+    cy.get('[role="status"]').should('contain', 'Código aplicado: PROMO5')
+    cy.get('@aplicarCupom.all').should('have.length', 2)
   })
 
   it('9. valida e aplica voucher de troca como cupom de valor fixo, sem classificá-lo como promocional', () => {
@@ -321,5 +323,41 @@ describe('Checkout — contrato de pagamentos e cupons', () => {
     cy.contains('button', '✓ Confirmar e pagar').click()
     cy.wait('@finalizarPedido').its('response.body.status').should('eq', 'EM_PROCESSAMENTO')
     cy.contains('Status: Em processamento').should('be.visible')
+  })
+
+  it('14. separa sempre o frete e mantém pagamento dos cartões pelo total do backend', () => {
+    prepararCheckout()
+    cy.get('[data-testid="resumo-valores-checkout"]')
+      .should('contain', 'Produtos (subtotal elegível): R$ 100,00')
+      .and('contain', 'Frete a pagar separadamente: R$ 19,90')
+    aplicarCupom('VALE150')
+    cy.get('[data-testid="resumo-valores-checkout"]')
+      .should('contain', 'Frete a pagar separadamente: R$ 19,90')
+    cy.get('[data-testid="regra-voucher-frete"]')
+      .should('contain', 'nunca o frete')
+      .and('contain', 'cartões selecionados')
+    cy.get('[data-testid="valor-pagamento-1"]').should('have.value', '19.9')
+    avancarARevisao()
+    cy.contains('button', '✓ Confirmar e pagar').click()
+    cy.wait('@finalizarPedido').its('request.body.pagamentos').should('deep.equal', [
+      { formaPagamentoId: 4, valor: 19.9, parcelas: 1 },
+    ])
+  })
+
+  it('15. preserva dois cartões selecionados ao substituir o benefício aplicado', () => {
+    prepararCheckout()
+    cy.contains('button', '+ Dividir pagamento').click()
+    aplicarCupom('PROMO10')
+    cy.get('.checkout-split-row').should('have.length', 2)
+    cy.get('.checkout-split-row').eq(0).find('select').first().should('have.value', '4')
+    cy.get('.checkout-split-row').eq(1).find('select').first().should('have.value', '5')
+    cy.get('[data-testid="valor-pagamento-1"]').should('have.value', '54.95')
+    cy.get('[data-testid="valor-pagamento-2"]').should('have.value', '54.95')
+    avancarARevisao()
+    cy.contains('button', '✓ Confirmar e pagar').click()
+    cy.wait('@finalizarPedido').its('request.body.pagamentos').should('deep.equal', [
+      { formaPagamentoId: 4, valor: 54.95, parcelas: 1 },
+      { formaPagamentoId: 5, valor: 54.95, parcelas: 1 },
+    ])
   })
 })

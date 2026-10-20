@@ -7,6 +7,7 @@ const menu = [
   { label: 'Carteira', path: '/cartoes', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
   { label: 'Meus Pedidos', path: '/meus-pedidos', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
   { label: 'Trocas e Devoluções', path: '/trocas', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
+  { label: 'Meus cupons', path: '/meus-cupons', icon: 'M20 12v8H4v-8m16 0V8H4v4m16 0H4m8-4v12' },
 ]
 
 export default function ClienteSidebar() {

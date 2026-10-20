@@ -105,8 +105,9 @@ function obterDadosVoucher(...fontes) {
   let voucherResgatadoEm = null
 
   for (const candidato of candidatos) {
-    if (voucherValor === null && candidato.voucherValor !== undefined && candidato.voucherValor !== null) {
-      const valor = Number(candidato.voucherValor)
+    const saldoInformado = candidato.voucherValor ?? candidato.saldo
+    if (voucherValor === null && saldoInformado !== undefined && saldoInformado !== null) {
+      const valor = Number(saldoInformado)
       if (Number.isFinite(valor) && valor >= 0) voucherValor = valor
     }
     if (voucherResgatadoEm === null && candidato.voucherResgatadoEm) {
@@ -119,6 +120,14 @@ function obterDadosVoucher(...fontes) {
     voucherResgatadoEm,
     utilizado: Boolean(voucherResgatadoEm) || voucherValor === 0,
   }
+}
+
+function ehVoucher(tipo) {
+  return ['FIXO', 'TROCA', 'VOUCHER'].includes(String(tipo || '').toUpperCase())
+}
+
+function ehPromocao(tipo) {
+  return ['PERCENTUAL', 'PROMOCAO', 'PROMOÇÃO'].includes(String(tipo || '').toUpperCase())
 }
 
 export default function CheckoutPagamentoPage() {
@@ -207,7 +216,7 @@ export default function CheckoutPagamentoPage() {
             if (ativo && dadosCupom?.valido) {
               const tipo = String(dadosCupom.tipo || "").toUpperCase()
               setTipoCupomAplicado(tipo)
-              if (tipo === "FIXO") {
+              if (ehVoucher(tipo)) {
                 const voucher = obterDadosVoucher(dadosCupom, pedidoAtual)
                 setSaldoVoucher(voucher.voucherValor)
                 setVoucherResgatadoEm(voucher.voucherResgatadoEm)
@@ -466,14 +475,12 @@ export default function CheckoutPagamentoPage() {
       }
 
       const tipoValidado = String(dadosValidacao.tipo || "").toUpperCase()
-      if (tipoValidado === "PERCENTUAL" && tipoCupomAplicado === "PERCENTUAL") {
-        setErro("Só é permitido um cupom promocional por pedido.")
-        setAplicandoCupom(false)
+      if (!ehVoucher(tipoValidado) && !ehPromocao(tipoValidado)) {
+        setErro("O backend retornou um tipo de benefício não reconhecido.")
         return
       }
-
       const voucherValidado = obterDadosVoucher(dadosValidacao)
-      if (tipoValidado === "FIXO" && voucherValidado.utilizado) {
+      if (ehVoucher(tipoValidado) && voucherValidado.utilizado) {
         setErro(dadosValidacao?.mensagem || "Cupom ou voucher já utilizado.")
         setAplicandoCupom(false)
         return
@@ -498,7 +505,7 @@ export default function CheckoutPagamentoPage() {
         : pedidoAtualizado?.cupom?.codigo || codigo
       setCupomAplicado(codigoRetornado)
       setTipoCupomAplicado(tipoValidado)
-      if (tipoValidado === "FIXO") {
+      if (ehVoucher(tipoValidado)) {
         const voucher = obterDadosVoucher(pedidoAtualizado, dadosValidacao)
         setSaldoVoucher(voucher.voucherValor)
         setVoucherResgatadoEm(voucher.voucherResgatadoEm)
@@ -507,19 +514,21 @@ export default function CheckoutPagamentoPage() {
         setVoucherResgatadoEm(null)
       }
       setPagamentos((atuais) =>
-        novoTotal === 0
-          ? []
-          : [
-              {
-                id: atuais[0]?.id || Date.now(),
-                formaPagamentoId:
-                  atuais[0]?.formaPagamentoId ||
-                  selecionado ||
-                  String(cartoes[0]?.id || ""),
-                valor: novoTotal,
-                parcelas: atuais[0]?.parcelas || 1,
-              },
-            ],
+        novoTotal === 0 ? [] : (() => {
+          const linhas = atuais.length ? atuais : [{
+            id: Date.now(),
+            formaPagamentoId: selecionado || String(cartoes[0]?.id || ""),
+            parcelas: 1,
+          }]
+          const totalCentavos = Math.round(novoTotal * 100)
+          const baseCentavos = Math.floor(totalCentavos / linhas.length)
+          let restanteCentavos = totalCentavos
+          return linhas.map((linha, indice) => {
+            const valorCentavos = indice === linhas.length - 1 ? restanteCentavos : baseCentavos
+            restanteCentavos -= valorCentavos
+            return { ...linha, valor: valorCentavos / 100 }
+          })
+        })(),
       )
       setCodigoCupom("")
       setValor(novoTotal.toFixed(2))
@@ -784,7 +793,7 @@ export default function CheckoutPagamentoPage() {
               style={{ display: "flex", gap: 8, alignItems: "end", marginTop: 20 }}
             >
               <label className="label" style={{ flex: 1, margin: 0 }}>
-                Cupom ou voucher
+                Benefício único (promoção ou voucher de troca)
                 <input
                   className="input-field"
                   value={codigoCupom}
@@ -804,18 +813,28 @@ export default function CheckoutPagamentoPage() {
                 {aplicandoCupom ? "Aplicando..." : "Aplicar"}
               </button>
             </form>
+            <p data-testid="regra-voucher-frete" style={{ fontSize: 13, color: "var(--text-muted)" }}>
+              É permitido somente um benefício por pedido. O voucher reduz apenas os produtos do subtotal, nunca o frete; qualquer frete restante deve ser pago pelos cartões selecionados. Aplicar outro código substitui o benefício informado, sem combinar descontos.
+            </p>
+            {pedido.subtotal != null && (
+              <div data-testid="resumo-valores-checkout" style={{ fontSize: 13, borderTop: "1px solid #F3F4F6", paddingTop: 10 }}>
+                <div>Produtos (subtotal elegível): R$ {Number(pedido.subtotal).toFixed(2).replace(".", ",")}</div>
+                <div>Desconto do benefício: − R$ {Number(pedido.desconto || 0).toFixed(2).replace(".", ",")}</div>
+                <div>Frete a pagar separadamente: R$ {Number(pedido.frete || 0).toFixed(2).replace(".", ",")}</div>
+              </div>
+            )}
             {cupomAplicado && (
               <p role="status" style={{ color: "var(--success)" }}>
                 Código aplicado: {cupomAplicado}
               </p>
             )}
-            {tipoCupomAplicado === "FIXO" && !voucherResgatadoEm && saldoVoucher !== null && saldoVoucher > 0 && (
+            {ehVoucher(tipoCupomAplicado) && !voucherResgatadoEm && saldoVoucher !== null && saldoVoucher > 0 && (
               <p role="status" data-testid="saldo-voucher">
                 Saldo atual do voucher: R${" "}
                 {saldoVoucher.toFixed(2).replace(".", ",")}
               </p>
             )}
-            {tipoCupomAplicado === "FIXO" && (voucherResgatadoEm || saldoVoucher === 0) && (
+            {ehVoucher(tipoCupomAplicado) && (voucherResgatadoEm || saldoVoucher === 0) && (
               <p role="status" data-testid="voucher-resgatado">
                 Voucher resgatado
               </p>

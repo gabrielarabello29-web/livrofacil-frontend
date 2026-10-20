@@ -5,7 +5,7 @@ import Footer from '@/shared/components/Footer'
 import ClienteSidebar from '@/shared/layouts/cliente/ClienteSidebar'
 import { obterClienteId, useAuth } from '@/features/auth/context/AuthContext'
 import { listarMeusPedidos, cancelarMeuPedido } from '@/features/checkout/api/checkoutApi'
-import { obterItensPedido, obterNomeLivro, pedidoDeveSerExibido } from '@/features/pedidos/utils/pedidoUtils'
+import { enriquecerItensComLivros, obterItensPedido, obterNomeLivro, pedidoDeveSerExibido } from '@/features/pedidos/utils/pedidoUtils'
 
 const cancelaveis = ['EM_PROCESSAMENTO', 'EM_SEPARACAO', 'NA_TRANSPORTADORA']
 function textoStatus(status) { return String(status || 'Não informado').replaceAll('_', ' ').toLocaleLowerCase('pt-BR').replace(/(^|\s)\S/g, (letra) => letra.toUpperCase()) }
@@ -25,7 +25,12 @@ export default function MeusPedidosPage() {
 			if (!clienteId) throw new Error('Não foi possível identificar o cliente pelo UUID.')
 			const resposta = await listarMeusPedidos(clienteId)
 			const lista = Array.isArray(resposta) ? resposta : resposta?.data
-			setPedidos((Array.isArray(lista) ? lista : []).filter(pedidoDeveSerExibido))
+			const pedidosVisiveis = (Array.isArray(lista) ? lista : []).filter(pedidoDeveSerExibido)
+			const pedidosComTitulos = await Promise.all(pedidosVisiveis.map(async (pedido) => ({
+				...pedido,
+				itens: await enriquecerItensComLivros(obterItensPedido(pedido)),
+			})))
+			setPedidos(pedidosComTitulos)
 		} catch (error) {
 			setErro(error?.mensagem || 'Não foi possível carregar seus pedidos.')
 		} finally {

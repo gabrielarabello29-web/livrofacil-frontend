@@ -41,7 +41,15 @@ export default function CheckoutSucessoPage() {
             <div className="checkout-success-detail">
               <strong>Pedido #{pedido.id}</strong>
               <span>Total: R$ {Number(pedido.total || 0).toFixed(2).replace('.', ',')}</span>
+              <span>Produtos: R$ {Number(pedido.subtotal || 0).toFixed(2).replace('.', ',')}</span>
+              <span>Desconto: − R$ {Number(pedido.desconto || 0).toFixed(2).replace('.', ',')}</span>
+              <span>Frete: R$ {Number(pedido.frete || 0).toFixed(2).replace('.', ',')}</span>
               <span>Status: {statusTexto[pedido.status] || pedido.status}</span>
+              {Number(pedido.voucherSaldoGerado || 0) > 0 && (
+                <span role="status" data-testid="voucher-residual-gerado">
+                  Saldo residual de voucher emitido pelo backend: R$ {Number(pedido.voucherSaldoGerado).toFixed(2).replace('.', ',')}
+                </span>
+              )}
               {endereco && (
                 <span>Entrega: {formatarEndereco(endereco)}</span>
               )}

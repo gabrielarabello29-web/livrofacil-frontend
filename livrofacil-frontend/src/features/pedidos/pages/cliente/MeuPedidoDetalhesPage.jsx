@@ -8,6 +8,7 @@ import OrderTracking from '@/features/pedidos/components/OrderTracking'
 import { obterClienteId, useAuth } from '@/features/auth/context/AuthContext'
 import { buscarMeuPedido } from '@/features/checkout/api/checkoutApi'
 import { enriquecerItensComLivros, obterImagemLivro, obterItensPedido, obterNomeLivro } from '@/features/pedidos/utils/pedidoUtils'
+import { prazoTroca } from '@/features/troca/utils/trocaUtils'
 
 function dinheiro(valor) { return `R$ ${Number(valor || 0).toFixed(2).replace('.', ',')}` }
 function statusTexto(status) { return String(status || 'Não informado').replaceAll('_', ' ').toLocaleLowerCase('pt-BR').replace(/(^|\s)\S/g, (letra) => letra.toUpperCase()) }
@@ -36,7 +37,10 @@ export default function MeuPedidoDetalhesPage() {
       setCarregando(false)
       return () => { ativo = false }
     }
-    buscarMeuPedido(clienteId, id).then((resposta) => { if (ativo) setPedido(resposta) }).catch((error) => { if (ativo) setErro(error?.mensagem || 'Pedido não encontrado.') }).finally(() => { if (ativo) setCarregando(false) })
+    buscarMeuPedido(clienteId, id)
+      .then((resposta) => { if (ativo) setPedido(resposta) })
+      .catch((error) => { if (ativo) setErro(error?.mensagem || 'Pedido não encontrado.') })
+      .finally(() => { if (ativo) setCarregando(false) })
     return () => { ativo = false }
   }, [id, clienteId])
 
@@ -47,11 +51,9 @@ export default function MeuPedidoDetalhesPage() {
       setItensComLivros([])
       return () => { ativo = false }
     }
-
     enriquecerItensComLivros(itensPedido).then((itensAtualizados) => {
       if (ativo) setItensComLivros(itensAtualizados)
     })
-
     return () => { ativo = false }
   }, [pedido])
 
@@ -64,6 +66,76 @@ export default function MeuPedidoDetalhesPage() {
   }))
   const pagamentos = pagamentosDoPedido(pedido)
   const cupons = Array.isArray(pedido?.cupons) ? pedido.cupons : []
+  const elegibilidadeTroca = prazoTroca(pedido)
 
-  return <div><Header /><main className="page-container account-page"><div className="account-layout"><ClienteSidebar /><section className="account-content"><Link className="account-back-link" to="/meus-pedidos">← Meus pedidos</Link><div className="account-page-heading order-detail-heading"><div><h1>Pedido #{pedido?.id || id}</h1>{pedido && <p>{pedido.cliente?.nome || pedido.clienteNome || 'Cliente não informado'} · {dataTexto(pedido)}</p>}</div>{pedido && <span className="badge badge-purple">{statusTexto(pedido.status)}</span>}</div>{carregando && <div className="card account-feedback">Carregando detalhes do pedido...</div>}{erro && <div className="card account-feedback account-feedback-error" role="alert">{erro}</div>}{pedido && !carregando && <div className="order-detail-layout"><div className="order-detail-main"><section className="card order-detail-section"><h2>Itens do pedido</h2>{itens.length === 0 ? <p className="order-detail-muted">Nenhum item retornado pela API.</p> : <div className="order-detail-items">{itens.map((item, index) => <div className="order-detail-item" key={item.id || item.livroId || index}><LivroCover src={item.imagemUrl || item.capa || item.livro?.imagemUrl} alt={`Capa de ${item.titulo || item.livro?.titulo || 'livro'}`} style={{ width: 64, height: 84, borderRadius: 6, flexShrink: 0 }} /><div className="order-detail-item-info"><strong>{item.titulo || item.livro?.titulo || 'Livro não informado'}</strong><span>Livro ID: {item.livroId || item.livro?.id || '—'} · Quantidade: {item.quantidade || 0}</span><small>Valor unitário: {dinheiro(itemValor(item))}</small></div><strong className="order-detail-item-total">{dinheiro(itemTotal(item))}</strong></div>)}</div>}</section><section className="card order-detail-section"><h2>Entrega</h2><div className="order-detail-address"><strong>Endereço de entrega</strong><span>{enderecoTexto(enderecoEntrega)}</span></div>{enderecoCobranca && <div className="order-detail-address order-detail-address-secondary"><strong>Endereço de cobrança</strong><span>{enderecoTexto(enderecoCobranca)}</span></div>}</section><section className="card order-detail-section"><h2>Pagamento</h2>{pagamentos.length === 0 ? <p className="order-detail-muted">Informação de pagamento não retornada pela API.</p> : <div className="order-detail-payments">{pagamentos.map((pagamento, index) => <div key={pagamento.id || index}><span>{pagamento.formaPagamento?.bandeira || pagamento.bandeira || pagamento.tipoCartao || pagamento.tipo || pagamento.nome || 'Forma de pagamento'}{pagamento.parcelas ? ` · ${pagamento.parcelas}x` : ''}</span><strong>{dinheiro(pagamento.valor || pagamento.valorPago || pagamento.total)}</strong></div>)}</div>}</section><section className="card order-detail-section" aria-label="Rastreamento do pedido"><h2>Rastreamento</h2><OrderTracking rastreamento={pedido.rastreamento} /></section></div><aside className="order-detail-aside"><section className="card order-detail-section"><h2>Resumo</h2><div className="order-detail-summary-row"><span>Status</span><strong>{statusTexto(pedido.status)}</strong></div><div className="order-detail-summary-row"><span>Subtotal</span><strong>{dinheiro(pedido.subtotal)}</strong></div>{pedido.desconto !== undefined && <div className="order-detail-summary-row"><span>Desconto</span><strong>- {dinheiro(pedido.desconto)}</strong></div>}{pedido.frete !== undefined && <div className="order-detail-summary-row"><span>Frete</span><strong>{dinheiro(pedido.frete)}</strong></div>}<div className="order-detail-summary-total"><span>Total</span><strong>{dinheiro(pedido.total)}</strong></div></section>{cupons.length > 0 && <section className="card order-detail-section"><h2>Cupom</h2>{cupons.map((cupom) => <span className="badge badge-purple" key={typeof cupom === 'string' ? cupom : cupom.codigo}>{typeof cupom === 'string' ? cupom : cupom.codigo}</span>)}</section>}</aside></div>}</section></div></main><Footer /></div>
+  return (
+    <div>
+      <Header />
+      <main className="page-container account-page">
+        <div className="account-layout">
+          <ClienteSidebar />
+          <section className="account-content">
+            <Link className="account-back-link" to="/meus-pedidos">← Meus pedidos</Link>
+            <div className="account-page-heading order-detail-heading">
+              <div>
+                <h1>Pedido #{pedido?.id || id}</h1>
+                {pedido && <p>{pedido.cliente?.nome || pedido.clienteNome || 'Cliente não informado'} · {dataTexto(pedido)}</p>}
+              </div>
+              {pedido && <span className="badge badge-purple">{statusTexto(pedido.status)}</span>}
+            </div>
+            {carregando && <div className="card account-feedback">Carregando detalhes do pedido...</div>}
+            {erro && <div className="card account-feedback account-feedback-error" role="alert">{erro}</div>}
+            {pedido && !carregando && (
+              <>
+                {elegibilidadeTroca.elegivel ? (
+                  <div className="card" style={{ padding: 18, marginBottom: 20 }}>
+                    <p>Este pedido está no prazo para solicitação de troca ou devolução.</p>
+                    <Link className="btn-primary" data-testid="solicitar-troca-pedido" to={`/trocas/nova?pedidoId=${encodeURIComponent(pedido.id)}`}>Solicitar troca/devolução</Link>
+                  </div>
+                ) : String(pedido.status || '').toUpperCase() === 'ENTREGUE' && (
+                  <div className="card" role="status" style={{ padding: 18, marginBottom: 20 }}>
+                    {!pedido.entregueEm ? 'Este pedido não possui data de entrega registrada. Pedidos legados sem registro são inelegíveis; procure o suporte.' : elegibilidadeTroca.motivo}
+                  </div>
+                )}
+                <div className="order-detail-layout">
+                  <div className="order-detail-main">
+                    <section className="card order-detail-section">
+                      <h2>Itens do pedido</h2>
+                      {itens.length === 0 ? <p className="order-detail-muted">Nenhum item retornado pela API.</p> : (
+                        <div className="order-detail-items">
+                          {itens.map((item, index) => (
+                            <div className="order-detail-item" key={item.id || item.livroId || index}>
+                              <LivroCover src={item.imagemUrl || item.capa || item.livro?.imagemUrl} alt={`Capa de ${item.titulo || item.livro?.titulo || 'livro'}`} style={{ width: 64, height: 84, borderRadius: 6, flexShrink: 0 }} />
+                              <div className="order-detail-item-info">
+                                <strong>{item.titulo || item.livro?.titulo || 'Livro não informado'}</strong>
+                                <span>Livro ID: {item.livroId || item.livro?.id || '—'} · Quantidade: {item.quantidade || 0}</span>
+                                <small>Valor unitário: {dinheiro(itemValor(item))}</small>
+                              </div>
+                              <strong className="order-detail-item-total">{dinheiro(itemTotal(item))}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                    <section className="card order-detail-section">
+                      <h2>Entrega</h2>
+                      <div className="order-detail-address"><strong>Endereço de entrega</strong><span>{enderecoTexto(enderecoEntrega)}</span></div>
+                      {enderecoCobranca && <div className="order-detail-address order-detail-address-secondary"><strong>Endereço de cobrança</strong><span>{enderecoTexto(enderecoCobranca)}</span></div>}
+                    </section>
+                    {pagamentos.length > 0 && <section className="card order-detail-section"><h2>Pagamento</h2>{pagamentos.map((pagamento, index) => <p key={pagamento.id || index}>{pagamento.bandeira || pagamento.tipo || 'Pagamento'} · {dinheiro(pagamento.valor)}</p>)}</section>}
+                    {cupons.length > 0 && <section className="card order-detail-section"><h2>Cupons</h2>{cupons.map((cupom, index) => <p key={cupom.id || cupom.codigo || index}>{cupom.codigo || cupom}</p>)}</section>}
+                  </div>
+                  <aside className="order-detail-sidebar">
+                    <OrderTracking pedido={pedido} />
+                    <section className="card order-detail-section"><h2>Resumo</h2><p>Subtotal: {dinheiro(pedido.subtotal)}</p><p>Desconto: − {dinheiro(pedido.desconto)}</p><p>Frete: {dinheiro(pedido.frete)}</p><strong>Total: {dinheiro(pedido.total)}</strong></section>
+                  </aside>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  )
 }

@@ -8,11 +8,13 @@ const pedidos = [
   { id: 14, status: 'CANCELADO', statusAnterior: 'EM_CHECKOUT', total: 18, historicoStatus: [{ status: 'CANCELADO', statusAnterior: 'AGUARDANDO_PAGAMENTO' }] },
   { id: 15, status: 'CANCELADO', statusAnterior: 'PENDENTE', total: 20, passouPorProcessamento: 'false' },
   { id: 16, status: 'CANCELADO', total: 22, historicoStatus: [{ status: 'PENDENTE' }, { status: 'EM_PROCESSAMENTO' }, { status: 'CANCELADO' }] },
+  { id: 17, status: 'ENTREGUE', total: 109.8, itens: [{ id: 701, livroId: 44, quantidade: 1 }] },
 ]
 
 describe('Pedidos do cliente', () => {
   beforeEach(() => {
     cy.intercept('GET', `**/api/pedidos/cliente/${clienteId}`, { statusCode: 200, body: pedidos }).as('listarPedidos')
+    cy.intercept('GET', '**/api/livros/44', { statusCode: 200, body: { id: 44, titulo: 'O Livro Encontrado pelo ID' } }).as('buscarLivroPedido')
     cy.intercept('GET', '**/api/carrinhos/*', { statusCode: 200, body: { id: 1, itens: [], total: 0 } })
     cy.visit('/meus-pedidos', {
       onBeforeLoad(win) {
@@ -41,5 +43,12 @@ describe('Pedidos do cliente', () => {
   it('mostra os títulos dos livros retornados em diferentes formatos do DTO', () => {
     cy.contains('O Livro Visível').should('be.visible')
     cy.contains('Pedido cancelado durante o processamento').should('be.visible')
+  })
+
+  it('busca e mostra o título quando a lista de pedidos retorna apenas livroId', () => {
+    cy.wait('@buscarLivroPedido')
+    cy.contains('Pedido #17').should('be.visible')
+    cy.contains('O Livro Encontrado pelo ID').should('be.visible')
+    cy.contains('Título não informado').should('not.exist')
   })
 })

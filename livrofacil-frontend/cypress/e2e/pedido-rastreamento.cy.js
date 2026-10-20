@@ -10,7 +10,7 @@ const pedido = {
     etapa: 'Preparando para envio',
     ultimaModificacao: '2026-10-03T15:30:00Z',
   },
-  itens: [{ id: 8, livroId: 9, titulo: 'Livro rastreável', quantidade: 1, valorUnitario: 42.5 }],
+  itens: [{ id: 8, livroId: 9, quantidade: 1, valorUnitario: 42.5 }],
 }
 
 describe('Detalhes do pedido — rastreamento do backend', () => {
