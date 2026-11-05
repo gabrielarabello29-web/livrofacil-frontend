@@ -36,10 +36,15 @@ export function getInitialLivroForm(livro = null) {
     codigoBarras: livro?.codigoBarras || '',
     valorVenda: livro?.valorVenda ?? livro?.preco ?? '',
     ativo: livro ? Boolean(livro.ativo) : true,
-    autorId: livro?.autorId || '',
-    editoraId: livro?.editoraId || '',
-    grupoPrecificacaoId: livro?.grupoPrecificacaoId || '',
+    autorId: livro?.autorId ?? '',
+    autorNome: livro?.autorNome || livro?.autor || '',
+    editoraId: livro?.editoraId ?? '',
+    editoraNome: livro?.editoraNome || livro?.editora || '',
+    grupoPrecificacaoId: livro?.grupoPrecificacaoId ?? '',
+    grupoPrecificacaoNome: livro?.grupoPrecificacaoNome || '',
+    grupoPrecificacaoPercentualMargem: livro?.grupoPrecificacaoPercentualMargem ?? livro?.percentualMargem ?? '',
     categoriaIds: Array.isArray(livro?.categoriaIds) ? livro.categoriaIds.map(Number).filter(Boolean) : [],
+    categoriaNomes: Array.isArray(livro?.categoriaNomes) ? livro.categoriaNomes : [],
     dimensao: {
       altura: dimensao.altura ?? '',
       largura: dimensao.largura ?? '',
@@ -50,6 +55,19 @@ export function getInitialLivroForm(livro = null) {
 }
 
 export function buildLivroPayload(form) {
+  const autorId = Number(form.autorId)
+  const editoraId = Number(form.editoraId)
+  const grupoPrecificacaoId = Number(form.grupoPrecificacaoId)
+  const autorNome = String(form.autorNome || '').trim()
+  const editoraNome = String(form.editoraNome || '').trim()
+  const grupoPrecificacaoNome = String(form.grupoPrecificacaoNome || '').trim()
+  const grupoPrecificacaoPercentualMargem = Number(parseDecimal(form.grupoPrecificacaoPercentualMargem))
+  const categoriaNomes = Array.isArray(form.categoriaNomes)
+    ? form.categoriaNomes.map((nome) => String(nome || '').trim()).filter(Boolean)
+    : typeof form.categoriaNomes === 'string'
+      ? form.categoriaNomes.split(',').map((nome) => String(nome || '').trim()).filter(Boolean)
+      : []
+
   const payload = {
     codigo: String(form.codigo || '').trim(),
     titulo: String(form.titulo || '').trim(),
@@ -62,18 +80,38 @@ export function buildLivroPayload(form) {
     codigoBarras: String(form.codigoBarras || '').trim(),
     valorVenda: Number(parseDecimal(form.valorVenda)),
     ativo: form.ativo === true || form.ativo === 'true',
-    autorId: Number(form.autorId),
-    editoraId: Number(form.editoraId),
-    grupoPrecificacaoId: Number(form.grupoPrecificacaoId),
     categoriaIds: Array.isArray(form.categoriaIds)
       ? [...new Set(form.categoriaIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))]
       : [],
+    categoriaNomes: [...new Set(categoriaNomes)],
     dimensao: {
       altura: Number(parseDecimal(form.dimensao?.altura)),
       largura: Number(parseDecimal(form.dimensao?.largura)),
       profundidade: Number(parseDecimal(form.dimensao?.profundidade)),
       peso: Number(parseDecimal(form.dimensao?.peso)),
     },
+  }
+
+  if (Number.isFinite(autorId) && autorId > 0) {
+    payload.autorId = autorId
+  } else {
+    payload.autorId = null
+    if (autorNome) payload.autorNome = autorNome
+  }
+
+  if (Number.isFinite(editoraId) && editoraId > 0) {
+    payload.editoraId = editoraId
+  } else {
+    payload.editoraId = null
+    if (editoraNome) payload.editoraNome = editoraNome
+  }
+
+  if (Number.isFinite(grupoPrecificacaoId) && grupoPrecificacaoId > 0) {
+    payload.grupoPrecificacaoId = grupoPrecificacaoId
+  } else {
+    payload.grupoPrecificacaoId = null
+    if (grupoPrecificacaoNome) payload.grupoPrecificacaoNome = grupoPrecificacaoNome
+    if (Number.isFinite(grupoPrecificacaoPercentualMargem) && grupoPrecificacaoPercentualMargem >= 0) payload.grupoPrecificacaoPercentualMargem = grupoPrecificacaoPercentualMargem
   }
 
   return payload
@@ -123,12 +161,24 @@ export function validarLivroForm(form) {
   if (!form.valorVenda && form.valorVenda !== 0) erros.valorVenda = 'Valor de venda é obrigatório.'
   else if (!Number.isFinite(valorVenda) || valorVenda <= 0) erros.valorVenda = 'Valor de venda deve ser maior que zero.'
 
-  if (form.autorId === '' || form.autorId === null || Number(form.autorId) <= 0) erros.autorId = 'Selecione um autor.'
-  if (form.editoraId === '' || form.editoraId === null || Number(form.editoraId) <= 0) erros.editoraId = 'Selecione uma editora.'
-  if (form.grupoPrecificacaoId === '' || form.grupoPrecificacaoId === null || Number(form.grupoPrecificacaoId) <= 0) erros.grupoPrecificacaoId = 'Selecione um grupo de precificação.'
+  const autorSelecionado = form.autorId !== '' && form.autorId !== null && Number(form.autorId) > 0
+  const editoraSelecionada = form.editoraId !== '' && form.editoraId !== null && Number(form.editoraId) > 0
+  const autorNome = String(form.autorNome || '').trim()
+  const editoraNome = String(form.editoraNome || '').trim()
+  const grupoSelecionado = form.grupoPrecificacaoId !== '' && form.grupoPrecificacaoId !== null && Number(form.grupoPrecificacaoId) > 0
+  const grupoNome = String(form.grupoPrecificacaoNome || '').trim()
+  const categoriasNomes = Array.isArray(form.categoriaNomes)
+    ? form.categoriaNomes.map((nome) => String(nome || '').trim()).filter(Boolean)
+    : typeof form.categoriaNomes === 'string'
+      ? form.categoriaNomes.split(',').map((nome) => String(nome || '').trim()).filter(Boolean)
+      : []
+
+  if (!autorSelecionado && !autorNome) erros.autorId = 'Selecione um autor ou informe o nome do autor.'
+  if (!editoraSelecionada && !editoraNome) erros.editoraId = 'Selecione uma editora ou informe o nome da editora.'
+  if (!grupoSelecionado && !grupoNome) erros.grupoPrecificacaoId = 'Selecione um grupo de precificação ou informe o nome do grupo.'
 
   const categoriaIds = Array.isArray(form.categoriaIds) ? form.categoriaIds.map(Number) : []
-  if (categoriaIds.length === 0) erros.categoriaIds = 'Selecione ao menos uma categoria.'
+  if (categoriaIds.length === 0 && categoriasNomes.length === 0) erros.categoriaIds = 'Selecione ao menos uma categoria ou informe uma categoria nova.'
   else if (categoriaIds.some((id) => !Number.isInteger(id) || id <= 0)) erros.categoriaIds = 'Selecione apenas categorias válidas.'
   else if (new Set(categoriaIds).size !== categoriaIds.length) erros.categoriaIds = 'Não repita categorias.'
 
@@ -160,12 +210,13 @@ export function normalizarLivroDaApi(livro) {
     imagemUrl: livro?.imagemUrl || '',
     valorVenda: livro?.valorVenda ?? livro?.preco ?? 0,
     ativo: Boolean(livro?.ativo ?? (livro?.status === 'ATIVO' || livro?.status === 'Ativo')),
-    autorId: livro?.autorId || '',
+    autorId: livro?.autorId ?? '',
     autorNome: livro?.autorNome || livro?.autor || '',
-    editoraId: livro?.editoraId || '',
+    editoraId: livro?.editoraId ?? '',
     editoraNome: livro?.editoraNome || livro?.editora || '',
-    grupoPrecificacaoId: livro?.grupoPrecificacaoId || '',
+    grupoPrecificacaoId: livro?.grupoPrecificacaoId ?? '',
     grupoPrecificacaoNome: livro?.grupoPrecificacaoNome || livro?.grupo || '',
+    grupoPrecificacaoPercentualMargem: livro?.grupoPrecificacaoPercentualMargem ?? livro?.percentualMargem ?? '',
     categoriaIds: Array.isArray(livro?.categoriaIds) ? [...new Set(livro.categoriaIds.map(Number).filter(Boolean))] : [],
     categoriaNomes: Array.isArray(livro?.categoriaNomes) ? livro.categoriaNomes : [],
     categorias: Array.isArray(livro?.categorias) ? livro.categorias : [],

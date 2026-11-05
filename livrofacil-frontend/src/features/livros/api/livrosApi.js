@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8080/api'
+const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
 
 export async function tratarResposta(response) {
   const data = await response.json().catch(() => ({}))
@@ -30,7 +30,7 @@ async function request(method, path, body) {
   } catch (error) {
     throw {
       status: 0,
-      mensagem: 'Não foi possível conectar ao backend. Verifique se a aplicação está rodando em http://localhost:8080.',
+      mensagem: 'Não foi possível conectar ao backend. Verifique se a aplicação está rodando na porta 8080.',
       erros: {},
       originalError: error,
     }
@@ -79,12 +79,16 @@ export async function inativarLivro(id) {
   return request('PATCH', `/livros/${id}/inativar`)
 }
 
-export async function listarAutores() {
-  return request('GET', '/livros/opcoes/autores')
+export async function listarAutores(nome = '') {
+  const termo = String(nome || '').trim()
+  const query = termo ? `?nome=${encodeURIComponent(termo)}` : ''
+  return request('GET', `/livros/opcoes/autores${query}`)
 }
 
-export async function listarEditoras() {
-  return request('GET', '/livros/opcoes/editoras')
+export async function listarEditoras(nome = '') {
+  const termo = String(nome || '').trim()
+  const query = termo ? `?nome=${encodeURIComponent(termo)}` : ''
+  return request('GET', `/livros/opcoes/editoras${query}`)
 }
 
 export async function listarCategorias() {

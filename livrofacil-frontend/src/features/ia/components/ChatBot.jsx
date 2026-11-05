@@ -15,6 +15,12 @@ export default function ChatBot() {
     fimRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensagens])
 
+  useEffect(() => {
+    const abrirChat = () => setAberto(true)
+    window.addEventListener('livrofacil:abrir-chat', abrirChat)
+    return () => window.removeEventListener('livrofacil:abrir-chat', abrirChat)
+  }, [])
+
   async function enviar(e) {
     e.preventDefault()
     if (!input.trim() || carregando) return
@@ -36,6 +42,8 @@ export default function ChatBot() {
     <>
       {/* Floating button */}
       <button onClick={() => setAberto(v => !v)}
+        aria-label={aberto ? 'Fechar assistente' : 'Abrir assistente'}
+        aria-expanded={aberto}
         style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 999, width: 56, height: 56, borderRadius: '50%', background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 8px 24px rgba(124,58,237,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s' }}
         onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
         onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
@@ -50,7 +58,7 @@ export default function ChatBot() {
 
       {/* Chat window */}
       {aberto && (
-        <div style={{ position: 'fixed', bottom: 92, right: 24, zIndex: 998, width: 360, maxHeight: 520, background: '#fff', borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} className="animate-fadein">
+        <div style={{ position: 'fixed', bottom: 92, right: 24, zIndex: 998, width: 360, maxHeight: 520, background: '#fff', borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} className="chatbot-window animate-fadein">
           <div style={{ background: 'var(--primary)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

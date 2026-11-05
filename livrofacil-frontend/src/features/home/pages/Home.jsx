@@ -47,6 +47,7 @@ export default function Home() {
     livros.find((livro) => livro.titulo?.toLocaleLowerCase('pt-BR').includes('hobbit')),
     livros.find((livro) => livro.titulo?.toLocaleLowerCase('pt-BR').includes('harry potter')),
   ].filter(Boolean)
+  const capasHero = livrosHero.length ? livrosHero : livros.slice(0, 3)
 
   return (
     <div>
@@ -93,11 +94,29 @@ export default function Home() {
                 </div>
                 <div className="home-hero-vase" aria-hidden="true" />
                 <div className="home-hero-books">
-                  {livrosHero.map((l, i) => (
+                  {capasHero.length > 0 ? capasHero.map((l, i) => (
                     <Link key={l.id} to={`/livros/${l.id}`} className={`home-hero-book home-hero-book-${i + 1}`}>
                       <LivroCover src={l.imagemUrl} alt={`Capa de ${l.titulo}`} />
                     </Link>
-                  ))}
+                  )) : (
+                    <div className="home-hero-placeholder-books" aria-label="Ilustração de livros em destaque">
+                      <div className="home-hero-placeholder-book home-hero-placeholder-book-1">
+                        <span>LIVROFÁCIL</span>
+                        <strong>Novas<br />histórias</strong>
+                        <small>para descobrir</small>
+                      </div>
+                      <div className="home-hero-placeholder-book home-hero-placeholder-book-2">
+                        <span>LIVROFÁCIL</span>
+                        <strong>Um mundo<br />de ideias</strong>
+                        <small>começa aqui</small>
+                      </div>
+                      <div className="home-hero-placeholder-book home-hero-placeholder-book-3">
+                        <span>LIVROFÁCIL</span>
+                        <strong>Seu próximo<br />capítulo</strong>
+                        <small>está esperando</small>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="home-hero-pedestal" />
               </div>
@@ -181,7 +200,7 @@ export default function Home() {
                 <h2 style={{ color: '#fff', fontSize: 24, fontWeight: 800, margin: '0 0 10px' }}>Não sabe o que ler?</h2>
                 <p style={{ color: '#DDD6FE', fontSize: 15, margin: 0 }}>Nosso assistente virtual te ajuda a encontrar o livro perfeito para você.</p>
               </div>
-              <button onClick={() => {}} className="btn-primary" style={{ background: '#fff', color: 'var(--primary)', padding: '14px 28px', fontSize: 15 }}>
+              <button onClick={() => window.dispatchEvent(new Event('livrofacil:abrir-chat'))} className="btn-primary" style={{ background: '#fff', color: 'var(--primary)', padding: '14px 28px', fontSize: 15 }}>
                 💬 Falar com assistente
               </button>
             </div>

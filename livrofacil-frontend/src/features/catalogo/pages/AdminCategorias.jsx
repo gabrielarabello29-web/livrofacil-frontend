@@ -62,12 +62,16 @@ export default function AdminCategorias() {
           {!carregando && !erro && categoriasExibidas.length > 0 && (
             <div className="card" style={{ overflow: 'auto' }}>
               <table className="data-table">
-                <thead><tr><th>Categoria</th><th>Livros associados</th><th>Status</th></tr></thead>
+                <thead><tr><th>Categoria</th><th>Livros associados</th><th>Ações</th></tr></thead>
                 <tbody>{categoriasExibidas.map((categoria) => (
                   <tr key={categoria.id}>
                     <td style={{ fontWeight: 700 }}>{categoria.nome}</td>
                     <td style={{ fontWeight: 600 }}>{categoria.livros}</td>
-                    <td><span className="badge badge-blue">Status não informado pela API</span></td>
+                    <td>
+                      <a href={`/livros?categoria=${encodeURIComponent(categoria.nome)}`} className="btn-secondary" style={{ display: 'inline-block', padding: '8px 12px', fontSize: 13, textDecoration: 'none' }}>
+                        Ver detalhes
+                      </a>
+                    </td>
                   </tr>
                 ))}</tbody>
               </table>

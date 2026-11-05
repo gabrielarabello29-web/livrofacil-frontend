@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8080/api'
+const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
 
 async function tratarResposta(response) {
   const data = await response.json().catch(() => ({}))

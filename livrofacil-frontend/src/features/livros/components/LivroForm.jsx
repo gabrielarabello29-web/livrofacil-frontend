@@ -26,9 +26,29 @@ export default function LivroForm({ initialValues, onSubmit, onCancel, isEditing
     [categorias, form.categoriaIds],
   )
 
+  const categoriasNomes = Array.isArray(form.categoriaNomes) ? form.categoriaNomes : []
+
   function atualizarCampo(chave, valor) {
     setForm((prev) => ({ ...prev, [chave]: valor }))
     setErros((prev) => ({ ...prev, [chave]: undefined }))
+  }
+
+  function atualizarAutorSelecionado(valor) {
+    setForm((prev) => ({
+      ...prev,
+      autorId: valor,
+      autorNome: valor ? '' : prev.autorNome,
+    }))
+    setErros((prev) => ({ ...prev, autorId: undefined }))
+  }
+
+  function atualizarEditoraSelecionada(valor) {
+    setForm((prev) => ({
+      ...prev,
+      editoraId: valor,
+      editoraNome: valor ? '' : prev.editoraNome,
+    }))
+    setErros((prev) => ({ ...prev, editoraId: undefined }))
   }
 
   function atualizarDimensao(chave, valor) {
@@ -50,6 +70,16 @@ export default function LivroForm({ initialValues, onSubmit, onCancel, isEditing
       const proximo = jaSelecionada ? atual.filter((item) => item !== id) : [...atual, id]
       return { ...prev, categoriaIds: proximo }
     })
+    setErros((prev) => ({ ...prev, categoriaIds: undefined }))
+  }
+
+  function adicionarCategoriaNova(nome) {
+    const valor = String(nome || '').trim()
+    if (!valor) return
+    setForm((prev) => ({
+      ...prev,
+      categoriaNomes: [...new Set([...(Array.isArray(prev.categoriaNomes) ? prev.categoriaNomes : []), valor])],
+    }))
     setErros((prev) => ({ ...prev, categoriaIds: undefined }))
   }
 
@@ -245,60 +275,113 @@ export default function LivroForm({ initialValues, onSubmit, onCancel, isEditing
         <section className="card" style={{ padding: 24 }}>
           <h2 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Autor</h2>
 
-          <div>
-            <label className="label">Autor *</label>
-            <select
-              className={inputClassName('autorId')}
-              value={form.autorId}
-              onChange={(event) => atualizarCampo('autorId', event.target.value)}
-              disabled={opcoesCarregando || autores.length === 0}
-            >
-              <option value="">Selecione um autor</option>
-              {autores.map((autor) => (
-                <option key={autor.id} value={autor.id}>{autor.nome}</option>
-              ))}
-            </select>
-            {!opcoesCarregando && autores.length === 0 && <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: 6 }}>Nenhum autor cadastrado.</small>}
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div>
+              <label className="label">Autor *</label>
+              <select
+                className={inputClassName('autorId')}
+                value={form.autorId}
+                onChange={(event) => atualizarAutorSelecionado(event.target.value)}
+                disabled={opcoesCarregando || autores.length === 0}
+              >
+                <option value="">Selecione um autor</option>
+                {autores.map((autor) => (
+                  <option key={autor.id} value={autor.id}>{autor.nome}</option>
+                ))}
+              </select>
+              {!opcoesCarregando && autores.length === 0 && <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: 6 }}>Nenhum autor cadastrado.</small>}
+            </div>
+
+            <div>
+              <label className="label">Ou informe o nome do autor</label>
+              <input
+                className={inputClassName('autorNome')}
+                value={form.autorNome || ''}
+                onChange={(event) => {
+                  atualizarCampo('autorNome', event.target.value)
+                  if (form.autorId) atualizarAutorSelecionado('')
+                }}
+                placeholder="Digite um autor novo ou existente"
+              />
+            </div>
             {erros.autorId && <small style={{ color: 'var(--danger)', display: 'block', marginTop: 6 }}>{erros.autorId}</small>}
           </div>
         </section>
 
         <section className="card" style={{ padding: 24 }}>
           <h2 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Editora</h2>
-          <div>
-            <label className="label">Editora *</label>
-            <select
-              className={inputClassName('editoraId')}
-              value={form.editoraId}
-              onChange={(event) => atualizarCampo('editoraId', event.target.value)}
-              disabled={opcoesCarregando || editoras.length === 0}
-            >
-              <option value="">Selecione uma editora</option>
-              {editoras.map((editora) => (
-                <option key={editora.id} value={editora.id}>{editora.nome}</option>
-              ))}
-            </select>
-            {!opcoesCarregando && editoras.length === 0 && <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: 6 }}>Nenhuma editora cadastrada.</small>}
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div>
+              <label className="label">Editora *</label>
+              <select
+                className={inputClassName('editoraId')}
+                value={form.editoraId}
+                onChange={(event) => atualizarEditoraSelecionada(event.target.value)}
+                disabled={opcoesCarregando || editoras.length === 0}
+              >
+                <option value="">Selecione uma editora</option>
+                {editoras.map((editora) => (
+                  <option key={editora.id} value={editora.id}>{editora.nome}</option>
+                ))}
+              </select>
+              {!opcoesCarregando && editoras.length === 0 && <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: 6 }}>Nenhuma editora cadastrada.</small>}
+            </div>
+
+            <div>
+              <label className="label">Ou informe o nome da editora</label>
+              <input
+                className={inputClassName('editoraNome')}
+                value={form.editoraNome || ''}
+                onChange={(event) => {
+                  atualizarCampo('editoraNome', event.target.value)
+                  if (form.editoraId) atualizarEditoraSelecionada('')
+                }}
+                placeholder="Digite uma editora nova ou existente"
+              />
+            </div>
             {erros.editoraId && <small style={{ color: 'var(--danger)', display: 'block', marginTop: 6 }}>{erros.editoraId}</small>}
           </div>
         </section>
 
         <section className="card" style={{ padding: 24 }}>
           <h2 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Grupo de precificação</h2>
-          <div>
-            <label className="label">Grupo *</label>
-            <select
-              className={inputClassName('grupoPrecificacaoId')}
-              value={form.grupoPrecificacaoId}
-              onChange={(event) => atualizarCampo('grupoPrecificacaoId', event.target.value)}
-              disabled={opcoesCarregando || grupos.length === 0}
-            >
-              <option value="">Selecione o grupo</option>
-              {grupos.map((grupo) => (
-                <option key={grupo.id} value={grupo.id}>{grupo.nome}</option>
-              ))}
-            </select>
-            {!opcoesCarregando && grupos.length === 0 && <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: 6 }}>Nenhum grupo de precificação cadastrado.</small>}
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div>
+              <label className="label">Grupo *</label>
+              <select
+                className={inputClassName('grupoPrecificacaoId')}
+                value={form.grupoPrecificacaoId}
+                onChange={(event) => atualizarCampo('grupoPrecificacaoId', event.target.value)}
+                disabled={opcoesCarregando || grupos.length === 0}
+              >
+                <option value="">Selecione o grupo</option>
+                {grupos.map((grupo) => (
+                  <option key={grupo.id} value={grupo.id}>{grupo.nome}</option>
+                ))}
+              </select>
+              {!opcoesCarregando && grupos.length === 0 && <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: 6 }}>Nenhum grupo de precificação cadastrado.</small>}
+            </div>
+
+            <div>
+              <label className="label">Ou informe o nome do grupo</label>
+              <input
+                className={inputClassName('grupoPrecificacaoNome')}
+                value={form.grupoPrecificacaoNome || ''}
+                onChange={(event) => atualizarCampo('grupoPrecificacaoNome', event.target.value)}
+                placeholder="Digite um grupo novo ou existente"
+              />
+            </div>
+
+            <div>
+              <label className="label">Percentual de margem do grupo</label>
+              <input
+                className={inputClassName('grupoPrecificacaoPercentualMargem')}
+                type="text"
+                value={form.grupoPrecificacaoPercentualMargem ?? ''}
+                onChange={(event) => atualizarCampo('grupoPrecificacaoPercentualMargem', event.target.value)}
+                placeholder="35,5"
+              />
+            </div>
             {erros.grupoPrecificacaoId && <small style={{ color: 'var(--danger)', display: 'block', marginTop: 6 }}>{erros.grupoPrecificacaoId}</small>}
           </div>
         </section>
@@ -331,13 +414,42 @@ export default function LivroForm({ initialValues, onSubmit, onCancel, isEditing
           </div>
           {!opcoesCarregando && categorias.length === 0 && <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: 10 }}>Nenhuma categoria cadastrada.</small>}
 
+          <div style={{ marginTop: 16 }}>
+            <label className="label">Adicionar categoria nova</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                className="input-field"
+                placeholder="Digite uma categoria nova"
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    adicionarCategoriaNova(event.currentTarget.value)
+                    event.currentTarget.value = ''
+                  }
+                }}
+              />
+              <button type="button" className="btn-secondary" onClick={(event) => {
+                const input = event.currentTarget.parentElement.querySelector('input')
+                adicionarCategoriaNova(input?.value || '')
+                if (input) input.value = ''
+              }}>
+                Adicionar
+              </button>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
-            {categoriasSelecionadas.length === 0 ? (
+            {categoriasSelecionadas.length === 0 && categoriasNomes.length === 0 ? (
               <small style={{ color: 'var(--text-muted)' }}>Nenhuma categoria selecionada.</small>
             ) : (
-              categoriasSelecionadas.map((categoria) => (
-                <span key={categoria.id} className="badge badge-purple">{categoria.nome}</span>
-              ))
+              <>
+                {categoriasSelecionadas.map((categoria) => (
+                  <span key={categoria.id} className="badge badge-purple">{categoria.nome}</span>
+                ))}
+                {categoriasNomes.map((nome) => (
+                  <span key={nome} className="badge badge-purple">{nome}</span>
+                ))}
+              </>
             )}
           </div>
 

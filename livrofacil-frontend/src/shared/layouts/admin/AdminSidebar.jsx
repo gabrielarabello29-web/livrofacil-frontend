@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/context/AuthContext'
 
@@ -20,6 +20,11 @@ export default function AdminSidebar() {
   const { pathname } = useLocation()
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const [menuAberto, setMenuAberto] = useState(false)
+
+  useEffect(() => {
+    setMenuAberto(false)
+  }, [pathname])
 
   function isActive(path) {
     if (path === '/admin') return pathname === '/admin'
@@ -27,7 +32,20 @@ export default function AdminSidebar() {
   }
 
   return (
-    <aside className="admin-sidebar">
+    <>
+      <button
+        type="button"
+        className="admin-mobile-toggle"
+        aria-label={menuAberto ? 'Fechar menu administrativo' : 'Abrir menu administrativo'}
+        aria-expanded={menuAberto}
+        onClick={() => setMenuAberto((aberto) => !aberto)}
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          {menuAberto ? <><path d="m18 6-12 12" /><path d="m6 6 12 12" /></> : <><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></>}
+        </svg>
+      </button>
+      {menuAberto && <button className="admin-sidebar-backdrop" aria-label="Fechar menu" onClick={() => setMenuAberto(false)} />}
+    <aside className={`admin-sidebar${menuAberto ? ' open' : ''}`}>
       <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
           <div style={{ width: 32, height: 32, background: 'var(--primary)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -45,7 +63,7 @@ export default function AdminSidebar() {
 
       <nav style={{ padding: '12px 8px', flex: 1 }}>
         {menu.map(item => (
-          <Link key={item.path} to={item.path}
+          <Link key={item.path} to={item.path} onClick={() => setMenuAberto(false)}
             style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
               borderRadius: 8, marginBottom: 2, textDecoration: 'none', fontSize: 13, fontWeight: 500,
@@ -65,7 +83,7 @@ export default function AdminSidebar() {
       </nav>
 
       <div style={{ padding: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-        <button onClick={() => { logout(); navigate('/login', { replace: true }) }}
+        <button onClick={() => { setMenuAberto(false); logout(); navigate('/login', { replace: true }) }}
           style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#C4B5FD', transition: 'background 0.15s' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
           onMouseLeave={e => e.currentTarget.style.background = 'none'}>
@@ -76,5 +94,6 @@ export default function AdminSidebar() {
         </button>
       </div>
     </aside>
+    </>
   )
 }

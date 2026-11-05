@@ -69,7 +69,7 @@ export default function AdminConfiguracoes() {
           )}
 
           {/* Tabs */}
-          <div style={{ display: 'flex', borderBottom: '2px solid #F3F4F6', marginBottom: 28, gap: 2 }}>
+          <div className="admin-config-tabs" style={{ display: 'flex', borderBottom: '2px solid #F3F4F6', marginBottom: 28, gap: 2 }}>
             {abas.map(a => (
               <button key={a} onClick={() => setAba(a)}
                 style={{ padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, borderBottom: aba === a ? '2px solid var(--primary)' : '2px solid transparent', color: aba === a ? 'var(--primary)' : 'var(--text-muted)', marginBottom: -2 }}>
@@ -119,7 +119,7 @@ export default function AdminConfiguracoes() {
               <div className="card" style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700 }}>Configurações de e-mail</h3>
                 <div><label className="label">Servidor SMTP</label><input className="input-field" defaultValue="smtp.gmail.com" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="admin-config-email-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div><label className="label">Porta</label><input className="input-field" defaultValue="587" /></div>
                   <div>
                     <label className="label">Segurança</label>

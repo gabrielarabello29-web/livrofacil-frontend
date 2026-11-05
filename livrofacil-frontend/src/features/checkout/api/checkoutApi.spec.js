@@ -119,7 +119,7 @@ it('allows finalization without card payments only when the order total is zero'
   ).resolves.toEqual({ status: 'EM_PROCESSAMENTO' })
 
   expect(fetchMock).toHaveBeenCalledWith(
-    'http://localhost:8080/api/pedidos/42/finalizar?clienteId=cliente-uuid',
+    '/api/pedidos/42/finalizar?clienteId=cliente-uuid',
     expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({ carrinhoId: 7, pagamentos: [] }),

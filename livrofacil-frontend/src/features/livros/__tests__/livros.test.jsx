@@ -184,6 +184,35 @@ describe('módulo de livros', () => {
     })
   })
 
+  it('envia autor e editora por nome quando não há ID', () => {
+    expect(buildLivroPayload({
+      codigo: 'LIV-002',
+      titulo: 'Livro sem id de relacionamento',
+      ano: 2024,
+      edicao: 1,
+      isbn: '9780000000000',
+      numeroPaginas: 300,
+      sinopse: 'Resumo',
+      imagemUrl: 'https://exemplo.com/capa.jpg',
+      codigoBarras: '7890000000000',
+      valorVenda: '79,90',
+      ativo: true,
+      autorId: '',
+      editoraId: '',
+      autorNome: 'Autor Novo',
+      editoraNome: 'Editora Nova',
+      grupoPrecificacaoId: '9',
+      categoriaIds: [10],
+      dimensao: { altura: '20', largura: '15', profundidade: '3', peso: '0,80' },
+    })).toMatchObject({
+      autorId: null,
+      editoraId: null,
+      autorNome: 'Autor Novo',
+      editoraNome: 'Editora Nova',
+      valorVenda: 79.9,
+    })
+  })
+
   it('exige uma URL de capa HTTP ou HTTPS válida', () => {
     const base = {
       codigo: 'LIV-001', titulo: 'Livro', ano: 2024, edicao: 1, isbn: '123', numeroPaginas: 1,

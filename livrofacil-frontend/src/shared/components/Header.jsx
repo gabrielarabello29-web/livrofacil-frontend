@@ -24,9 +24,9 @@ export default function Header() {
 
   return (
     <header style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, zIndex: 50 }}>
-      <div className="page-container" style={{ display: 'flex', alignItems: 'center', gap: 24, height: 64 }}>
+      <div className="page-container header-shell" style={{ display: 'flex', alignItems: 'center', gap: 24, height: 64 }}>
         {/* Logo */}
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flexShrink: 0 }}>
+        <Link to="/" className="header-logo" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flexShrink: 0 }}>
           <div style={{ width: 34, height: 34, background: 'var(--primary)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
@@ -53,7 +53,7 @@ export default function Header() {
         </nav>
 
         {/* Search */}
-        <form onSubmit={handleBusca} style={{ flex: 1, display: 'flex', maxWidth: 420 }}>
+        <form onSubmit={handleBusca} className="header-search" style={{ flex: 1, display: 'flex', maxWidth: 420 }}>
           <div style={{ position: 'relative', flex: 1 }}>
             <input
               value={busca}
@@ -72,8 +72,8 @@ export default function Header() {
         </form>
 
         {/* Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-          <Link to="/favoritos" title="Favoritos" style={{ padding: 8, borderRadius: 8, color: 'var(--text-muted)', display: 'flex', transition: 'background 0.15s', textDecoration: 'none' }}
+        <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <Link to="/favoritos" title="Favoritos" className="header-icon-button" style={{ padding: 8, borderRadius: 8, color: 'var(--text-muted)', display: 'flex', transition: 'background 0.15s', textDecoration: 'none' }}
             onMouseEnter={e => e.currentTarget.style.background = '#F3F4F6'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -81,7 +81,7 @@ export default function Header() {
             </svg>
           </Link>
 
-          <Link to="/carrinho" title="Carrinho" style={{ padding: 8, borderRadius: 8, color: 'var(--text-muted)', display: 'flex', position: 'relative', transition: 'background 0.15s', textDecoration: 'none' }}
+          <Link to="/carrinho" title="Carrinho" className="header-icon-button" style={{ padding: 8, borderRadius: 8, color: 'var(--text-muted)', display: 'flex', position: 'relative', transition: 'background 0.15s', textDecoration: 'none' }}
             onMouseEnter={e => e.currentTarget.style.background = '#F3F4F6'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -99,6 +99,9 @@ export default function Header() {
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setUserMenuAberto(v => !v)}
+              aria-label="Menu do usuário"
+              aria-expanded={userMenuAberto}
+              aria-haspopup="true"
               style={{ padding: 8, borderRadius: 8, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}
               onMouseEnter={e => e.currentTarget.style.background = '#F3F4F6'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -114,7 +117,7 @@ export default function Header() {
               )}
             </button>
             {userMenuAberto && (
-              <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 8, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 200, zIndex: 100 }} className="animate-fadein">
+              <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 8, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 200, zIndex: 100 }} className="header-user-menu animate-fadein">
                 {usuario ? (
                   <>
                     <div style={{ padding: '14px 16px', borderBottom: '1px solid #F3F4F6' }}>
