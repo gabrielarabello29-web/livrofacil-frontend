@@ -331,7 +331,7 @@ export default function AdminAnalise() {
 
           {!carregando && !erro && semVendas && (
             <div className="card" role="status" style={{ padding: '12px 16px', marginBottom: 16, color: 'var(--text-muted)', fontSize: 14 }}>
-              Não houve vendas de pedidos entregues ou finalizados no período. Os meses e valores zero retornados pela API permanecem no gráfico e na tabela.
+              Não houve vendas de pedidos entregues ou finalizados no período.
             </div>
           )}
 

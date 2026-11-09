@@ -46,7 +46,7 @@ export default function AdminCategorias() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
             <div>
               <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800 }}>Categorias</h1>
-              <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>{categorias.length} categorias retornadas pela API</p>
+              <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>{categorias.length} categorias </p>
             </div>
             <input className="input-field" value={busca} onChange={(event) => setBusca(event.target.value)} placeholder="Buscar categoria..." style={{ maxWidth: 300 }} />
           </div>

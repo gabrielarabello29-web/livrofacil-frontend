@@ -40,7 +40,7 @@ export default function AdminEstoque() {
       <div className="admin-content">
         <div style={{ padding: '28px 32px' }}>
           <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800 }}>Estoque</h1>
-          <p style={{ margin: '0 0 24px', color: 'var(--text-muted)' }}>Quantidades carregadas do banco de dados.</p>
+          <p style={{ margin: '0 0 24px', color: 'var(--text-muted)' }}> </p>
           <div className="card" style={{ padding: '14px 20px', marginBottom: 16 }}>
             <input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder="Buscar livro ou código..." className="input-field" style={{ maxWidth: 360 }} />
           </div>

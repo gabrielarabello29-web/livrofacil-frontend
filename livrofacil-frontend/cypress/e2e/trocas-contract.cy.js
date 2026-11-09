@@ -1,7 +1,7 @@
 const clienteId = '11111111-1111-4111-8111-111111111111'
 const admin = { id: '22222222-2222-4222-8222-222222222222', nome: 'Administrador E2E', perfil: 'ADMIN', ativo: true }
 const cliente = { uuid: clienteId, id: clienteId, nome: 'Cliente E2E', perfil: 'CLIENTE', ativo: true }
-const pedidoEntregue = { id: 86, status: 'ENTREGUE', entregueEm: '2026-10-15T12:00:00', itens: [{ itemPedidoId: 701, livroId: 44, pedidoId: 86, quantidade: 3, valorUnitario: 32.5 }] }
+const pedidoEntregue = { id: 86, status: 'ENTREGUE', entregueEm: new Date().toISOString(), itens: [{ itemPedidoId: 701, livroId: 44, pedidoId: 86, quantidade: 3, valorUnitario: 32.5 }] }
 
 describe('Trocas e devoluções — contratos frontend com intercepts', () => {
   function prepararSolicitacao(pedido = pedidoEntregue, solicitacoes = []) {
@@ -24,7 +24,7 @@ describe('Trocas e devoluções — contratos frontend com intercepts', () => {
     const cenarios = [
       { ...pedidoEntregue, status: 'EM_ROTA_DE_ENTREGA' },
       { ...pedidoEntregue, entregueEm: null },
-      { ...pedidoEntregue, entregueEm: '2026-10-01T12:00:00' },
+      { ...pedidoEntregue, entregueEm: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString() },
     ]
     cenarios.forEach((pedido, index) => {
       cy.intercept('GET', `**/api/pedidos/cliente/${clienteId}`, { statusCode: 200, body: [pedido] }).as(`pedidoInelegivel${index}`)
@@ -40,7 +40,7 @@ describe('Trocas e devoluções — contratos frontend com intercepts', () => {
     prepararSolicitacao()
     cy.intercept('POST', '**/api/trocas', (req) => {
       expect(req.body).to.deep.equal({ clienteId, pedidoId: 86, itemPedidoId: 701, tipo: 'DEVOLUCAO', quantidade: 2, motivo: 'Produto danificado' })
-      req.reply({ statusCode: 201, body: { id: 501, ...req.body, status: 'SOLICITADA' } })
+      req.reply({ statusCode: 201, body: { id: 501, ...req.body, status: 'EM_TROCA' } })
     }).as('solicitar')
     cy.get('[data-testid="troca-pedido"]').select('86')
     cy.get('[data-testid="troca-item"]').select('itemPedidoId:701')
@@ -93,7 +93,7 @@ describe('Trocas e devoluções — contratos frontend com intercepts', () => {
   })
 
   it('exibe detalhe, justificativa, recebimento e histórico da solicitação', () => {
-    cy.intercept('GET', `**/api/trocas/cliente/${clienteId}`, { statusCode: 200, body: [{ id: 501, pedidoId: 86, tipo: 'DEVOLUCAO', titulo: 'Livro da troca', quantidadeSolicitada: 2, quantidadeRecebida: 1, status: 'CONCLUIDA', voucherCodigo: 'TR-501', voucherValor: 32.5 }] })
+    cy.intercept('GET', `**/api/trocas/cliente/${clienteId}`, { statusCode: 200, body: [{ id: 501, pedidoId: 86, tipo: 'DEVOLUCAO', titulo: 'Livro da troca', quantidadeSolicitada: 2, quantidadeRecebida: 1, status: 'TROCADO', voucherCodigo: 'TR-501', voucherValor: 32.5 }] })
     cy.intercept('GET', `**/api/trocas/cliente/${clienteId}/vouchers`, { statusCode: 200, body: [] })
     cy.visit('/trocas', { onBeforeLoad(win) { win.localStorage.setItem('usuario', JSON.stringify(cliente)) } })
     cy.intercept('GET', `**/api/trocas/cliente/${clienteId}/501`, { statusCode: 200, body: { id: 501, pedidoId: 86, tipo: 'DEVOLUCAO', titulo: 'Livro da troca', quantidadeSolicitada: 2, quantidadeRecebida: 1, status: 'RECUSADA', motivoRecusa: 'Dano não elegível' } }).as('detalhe')
@@ -105,14 +105,14 @@ describe('Trocas e devoluções — contratos frontend com intercepts', () => {
 
   it('admin filtra, exige justificativa e recebe parcialmente com reposição escolhida', () => {
     let listaTrocas = [
-      { id: 601, pedidoId: 86, clienteId, clienteNome: 'Cliente E2E', titulo: 'Livro A', tipo: 'TROCA', quantidadeSolicitada: 2, status: 'SOLICITADA' },
-      { id: 602, pedidoId: 86, clienteId, clienteNome: 'Cliente E2E', titulo: 'Livro B', tipo: 'DEVOLUCAO', quantidadeSolicitada: 1, status: 'SOLICITADA' },
-      { id: 603, pedidoId: 86, clienteId, titulo: 'Livro C', tipo: 'DEVOLUCAO', quantidadeSolicitada: 2, status: 'AGUARDANDO_RECEBIMENTO' },
+      { id: 601, pedidoId: 86, clienteId, clienteNome: 'Cliente E2E', titulo: 'Livro A', tipo: 'TROCA', quantidadeSolicitada: 2, status: 'EM_TROCA' },
+      { id: 602, pedidoId: 86, clienteId, clienteNome: 'Cliente E2E', titulo: 'Livro B', tipo: 'DEVOLUCAO', quantidadeSolicitada: 1, status: 'EM_TROCA' },
+      { id: 603, pedidoId: 86, clienteId, titulo: 'Livro C', tipo: 'DEVOLUCAO', quantidadeSolicitada: 2, status: 'TROCA_AUTORIZADA' },
     ]
     cy.intercept('GET', '**/api/trocas*', (req) => req.reply({ statusCode: 200, body: listaTrocas })).as('listaAdmin')
-    cy.intercept('PATCH', '**/api/trocas/601/autorizar', (req) => { listaTrocas = listaTrocas.map((t) => t.id === 601 ? { ...t, status: 'AGUARDANDO_RECEBIMENTO' } : t); req.reply({ statusCode: 200, body: { id: 601, status: 'AGUARDANDO_RECEBIMENTO' } }) }).as('autorizar')
+    cy.intercept('PATCH', '**/api/trocas/601/autorizar', (req) => { listaTrocas = listaTrocas.map((t) => t.id === 601 ? { ...t, status: 'TROCA_AUTORIZADA' } : t); req.reply({ statusCode: 200, body: { id: 601, status: 'TROCA_AUTORIZADA' } }) }).as('autorizar')
     cy.intercept('PATCH', '**/api/trocas/602/recusar', (req) => { expect(req.body).to.deep.equal({ motivo: 'Produto incorreto' }); req.reply({ statusCode: 200, body: { id: 602, status: 'RECUSADA' } }); listaTrocas = listaTrocas.filter((t) => t.id !== 602) }).as('recusar')
-    cy.intercept('PATCH', '**/api/trocas/603/receber', (req) => { expect(req.body).to.deep.equal({ retornarEstoque: true, quantidadeRecebida: 1 }); const finalizada = { id: 603, pedidoId: 86, clienteId, titulo: 'Livro C', tipo: 'DEVOLUCAO', quantidadeSolicitada: 2, quantidadeRecebida: 1, status: 'CONCLUIDA', creditoEm: '2026-10-19T15:10:00', voucherCodigo: 'TR-603', voucherValor: 32.5 }; listaTrocas = listaTrocas.map((t) => t.id === 603 ? finalizada : t); req.reply({ statusCode: 200, body: finalizada }) }).as('receber')
+    cy.intercept('PATCH', '**/api/trocas/603/receber', (req) => { expect(req.body).to.deep.equal({ retornarEstoque: true, quantidadeRecebida: 1 }); const finalizada = { id: 603, pedidoId: 86, clienteId, titulo: 'Livro C', tipo: 'DEVOLUCAO', quantidadeSolicitada: 2, quantidadeRecebida: 1, status: 'TROCADO', creditoEm: new Date().toISOString(), voucherCodigo: 'TR-603', voucherValor: 32.5 }; listaTrocas = listaTrocas.map((t) => t.id === 603 ? finalizada : t); req.reply({ statusCode: 200, body: finalizada }) }).as('receber')
     cy.visit('/admin/trocas', { onBeforeLoad(win) { win.localStorage.setItem('usuario', JSON.stringify(admin)) } })
     cy.wait('@listaAdmin')
     cy.get('[data-testid="autorizar-troca-601"]').click(); cy.wait('@autorizar'); cy.wait('@listaAdmin')

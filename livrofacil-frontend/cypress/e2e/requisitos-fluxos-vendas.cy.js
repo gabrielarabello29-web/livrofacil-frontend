@@ -331,10 +331,10 @@ describe("Fluxos mínimos de vendas, pagamentos, carrinho e trocas", () => {
       },
     })
     cy.wait("@listarPedidosAdmin")
-    cy.contains("tr", "Cliente E2E").contains("button", "Avançar").click()
+    cy.contains("tr", "Cliente E2E").contains("button", "Aprovar pagamento").click()
     cy.wait("@aprovarPedido").then(({ request, response }) => {
-      expect(request.body.status).to.equal("PAGAMENTO_APROVADO")
-      expect(response.body.status).to.equal("PAGAMENTO_APROVADO")
+      expect(request.body.status).to.equal("APROVADA")
+      expect(response.body.status).to.equal("APROVADA")
     })
     cy.contains("tr", "Cliente E2E").should("contain", "Pagamento aprovado")
   })
@@ -521,7 +521,7 @@ describe("Fluxos mínimos de vendas, pagamentos, carrinho e trocas", () => {
       id: 87,
       clienteNome: "Cliente E2E",
       total: 119.9,
-      status: "PAGAMENTO_APROVADO",
+      status: "EM_PROCESSAMENTO",
     }
 
     cy.intercept("GET", "**/api/pedidos/admin", (req) =>
@@ -550,13 +550,12 @@ describe("Fluxos mínimos de vendas, pagamentos, carrinho e trocas", () => {
 
     cy.wait("@listarPedidosAdmin")
     const transicoes = [
-      ["EM_SEPARACAO", "Em separação"],
-      ["NA_TRANSPORTADORA", "Na transportadora"],
-      ["EM_ROTA_DE_ENTREGA", "Em rota de entrega"],
-      ["ENTREGUE", "Entregue"],
+      ["APROVADA", "Pagamento aprovado", "Aprovar pagamento"],
+      ["EM_TRANSPORTE", "Em transporte", "Despachar pedido"],
+      ["ENTREGUE", "Entregue", "Confirmar entrega"],
     ]
-    transicoes.forEach(([status, textoStatus]) => {
-      cy.contains("tr", "Cliente E2E").contains("button", "Avançar").click()
+    transicoes.forEach(([status, textoStatus, textoAcao]) => {
+      cy.contains("tr", "Cliente E2E").contains("button", textoAcao).click()
 
       cy.wait("@atualizarStatus").then(({ request, response }) => {
         expect(request.body.status).to.equal(status)
@@ -570,8 +569,8 @@ describe("Fluxos mínimos de vendas, pagamentos, carrinho e trocas", () => {
     const entregueEm = new Date().toISOString()
     const pedidos = [
       { id: 80, status: "EM_PROCESSAMENTO", entregueEm },
-      { id: 81, status: "PAGAMENTO_APROVADO", entregueEm },
-      { id: 82, status: "NA_TRANSPORTADORA", entregueEm },
+      { id: 81, status: "APROVADA", entregueEm },
+      { id: 82, status: "EM_TRANSPORTE", entregueEm },
       {
         id: 83,
         status: "ENTREGUE",
@@ -793,7 +792,7 @@ describe("Fluxos mínimos de vendas, pagamentos, carrinho e trocas", () => {
         clienteNome: "Cliente E2E",
         titulo: "Livro da troca",
         quantidadeSolicitada: req.body.quantidade,
-        status: "SOLICITADA",
+        status: "EM_TROCA",
       }
       req.reply({ statusCode: 201, body: troca })
     }).as("solicitarTroca")
@@ -820,7 +819,7 @@ describe("Fluxos mínimos de vendas, pagamentos, carrinho e trocas", () => {
     cy.get('[data-testid="enviar-solicitacao-troca"]').click()
     cy.wait("@solicitarTroca")
       .its("response.body.status")
-      .should("eq", "SOLICITADA")
+      .should("eq", "EM_TROCA")
 
     cy.visit("/trocas", {
       onBeforeLoad(win) {
@@ -838,7 +837,7 @@ describe("Fluxos mínimos de vendas, pagamentos, carrinho e trocas", () => {
     })
     cy.wait(["@listarTrocasCliente", "@listarVouchersCliente"])
     cy.contains("Solicitação #603").should("be.visible")
-    cy.contains("Solicitada").should("be.visible")
+    cy.contains("Em troca").should("be.visible")
 
     cy.intercept({ method: "GET", pathname: "/api/trocas" }, (req) =>
       req.reply({ statusCode: 200, body: troca ? [troca] : [] }),
@@ -846,7 +845,7 @@ describe("Fluxos mínimos de vendas, pagamentos, carrinho e trocas", () => {
     cy.intercept("PATCH", "**/api/trocas/603/autorizar", (req) => {
       troca = {
         ...troca,
-        status: "AGUARDANDO_RECEBIMENTO",
+        status: "TROCA_AUTORIZADA",
       }
       req.reply({ statusCode: 200, body: troca })
     }).as("autorizarTroca")
@@ -884,11 +883,11 @@ describe("Fluxos mínimos de vendas, pagamentos, carrinho e trocas", () => {
 
     cy.wait("@autorizarTroca").then(({ request, response }) => {
       expect(request.method).to.equal("PATCH")
-      expect(response.body.status).to.equal("AGUARDANDO_RECEBIMENTO")
+      expect(response.body.status).to.equal("TROCA_AUTORIZADA")
     })
 
     cy.wait("@listarTrocasAdmin")
-    cy.contains("Aguardando recebimento").should("be.visible")
+    cy.contains("Troca autorizada · aguardando recebimento").should("be.visible")
 
     cy.visit("/trocas", {
       onBeforeLoad(win) {
@@ -905,7 +904,7 @@ describe("Fluxos mínimos de vendas, pagamentos, carrinho e trocas", () => {
       },
     })
     cy.wait(["@listarTrocasCliente", "@listarVouchersCliente"])
-    cy.contains("Aguardando recebimento").should("be.visible")
+    cy.contains("Troca autorizada · aguardando recebimento").should("be.visible")
 
     cy.visit("/admin/trocas", {
       onBeforeLoad(win) {

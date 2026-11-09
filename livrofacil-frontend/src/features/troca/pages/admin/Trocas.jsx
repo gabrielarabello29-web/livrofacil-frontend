@@ -9,29 +9,27 @@ import { trocaService } from "@/features/troca/api/trocaService"
 import {
   formatarDataTroca,
   formatarDinheiroTroca,
+  mapearStatusTroca,
+  rotuloStatusTroca,
 } from "@/features/troca/utils/trocaUtils"
 
 const statusCores = {
-  SOLICITADA: "badge-yellow",
-  AGUARDANDO_RECEBIMENTO: "badge-blue",
+  EM_TROCA: "badge-yellow",
+  TROCA_AUTORIZADA: "badge-blue",
   RECEBIDA: "badge-blue",
-  CONCLUIDA: "badge-green",
-  RECUSADA: "badge-red",
-  AUTORIZADA: "badge-blue",
-  TROCADA: "badge-green",
   TROCADO: "badge-green",
+  RECUSADA: "badge-red",
 }
 
 const statusNomes = {
-  SOLICITADA: "Solicitada",
-  AGUARDANDO_RECEBIMENTO: "Aguardando recebimento",
+  EM_TROCA: "Em troca",
+  TROCA_AUTORIZADA: "Troca autorizada · aguardando recebimento",
   RECEBIDA: "Recebida",
-  CONCLUIDA: "Concluída",
-  RECUSADA: "Recusada",
-  AUTORIZADA: "Autorizada (legado)",
-  TROCADA: "Trocada (legado)",
   TROCADO: "Trocado",
+  RECUSADA: "Recusada",
 }
+
+const statusOpcoes = Object.keys(statusNomes)
 
 function lista(resposta) {
   return Array.isArray(resposta)
@@ -196,8 +194,7 @@ export default function AdminTrocas() {
               Trocas e Devoluções
             </h1>
             <p style={{ margin: 0, fontSize: 14, color: "var(--text-muted)" }}>
-              {trocas.length} solicitações · controles visuais de perfil não
-              representam autorização no servidor
+              {trocas.length} solicitações
             </p>
           </div>
           <div
@@ -212,15 +209,9 @@ export default function AdminTrocas() {
                 onChange={(event) => setFiltroStatus(event.target.value)}
               >
                 <option value="">Todos</option>
-                {[
-                  "SOLICITADA",
-                  "AGUARDANDO_RECEBIMENTO",
-                  "RECEBIDA",
-                  "CONCLUIDA",
-                  "RECUSADA",
-                ].map((status) => (
+                {statusOpcoes.map((status) => (
                   <option key={status} value={status}>
-                    {statusNomes[status]}
+                    {statusNomes[status] || rotuloStatusTroca(status)}
                   </option>
                 ))}
               </select>
@@ -281,11 +272,8 @@ export default function AdminTrocas() {
                 </thead>
                 <tbody>
                   {trocas.map((troca) => {
-                    const status = String(troca.status || "").toUpperCase()
-                    const concluida =
-                      status === "CONCLUIDA" ||
-                      status === "TROCADA" ||
-                      status === "TROCADO"
+                    const status = mapearStatusTroca(troca?.status)
+                    const concluida = status === "TROCADO"
                     return (
                       <tr key={troca.id}>
                         <td>
@@ -332,7 +320,9 @@ export default function AdminTrocas() {
                           <span
                             className={`badge ${statusCores[status] || "badge-gray"}`}
                           >
-                            {statusNomes[status] || status}
+                            {statusNomes[status] ||
+                              rotuloStatusTroca(status) ||
+                              status}
                           </span>
                           <small style={{ display: "block" }}>
                             Criada: {formatarDataTroca(troca.criadoEm)}
@@ -361,7 +351,7 @@ export default function AdminTrocas() {
                               gap: 4,
                             }}
                           >
-                            {status === "SOLICITADA" && (
+                            {status === "EM_TROCA" && (
                               <>
                                 <button
                                   data-testid={`autorizar-troca-${troca.id}`}
@@ -385,7 +375,7 @@ export default function AdminTrocas() {
                                 </button>
                               </>
                             )}
-                            {status === "AGUARDANDO_RECEBIMENTO" && (
+                            {status === "TROCA_AUTORIZADA" && (
                               <button
                                 data-testid={`recebida-troca-${troca.id}`}
                                 disabled={processandoId === troca.id}
@@ -543,19 +533,23 @@ export default function AdminTrocas() {
               <h3>Histórico</h3>
               {historico.length ? (
                 <ol>
-                  {historico.map((evento) => (
-                    <li key={evento.id}>
-                      {statusNomes[evento.status] || evento.status} ·{" "}
-                      {formatarDataTroca(evento.criadoEm)}
-                      {evento.observacao && ` · ${evento.observacao}`}
-                    </li>
-                  ))}
+                  {historico.map((evento) => {
+                    const eventoStatus = mapearStatusTroca(evento?.status)
+                    return (
+                      <li key={evento.id}>
+                        {statusNomes[eventoStatus] ||
+                          rotuloStatusTroca(eventoStatus) ||
+                          evento.status}{" "}
+                        · {formatarDataTroca(evento.criadoEm)}
+                        {evento.observacao && ` · ${evento.observacao}`}
+                      </li>
+                    )
+                  })}
                 </ol>
               ) : (
                 <p>Sem eventos retornados.</p>
               )}
-              {(modalTroca.status === "CONCLUIDA" ||
-                modalTroca.status === "TROCADA") &&
+              {mapearStatusTroca(modalTroca.status) === "TROCADO" &&
                 modalTroca.voucherCodigo && (
                   <p data-testid="admin-voucher-concluido">
                     Voucher {modalTroca.voucherCodigo} ·{" "}

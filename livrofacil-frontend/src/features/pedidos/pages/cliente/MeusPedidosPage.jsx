@@ -6,9 +6,9 @@ import ClienteSidebar from '@/shared/layouts/cliente/ClienteSidebar'
 import { obterClienteId, useAuth } from '@/features/auth/context/AuthContext'
 import { listarMeusPedidos, cancelarMeuPedido } from '@/features/checkout/api/checkoutApi'
 import { enriquecerItensComLivros, obterItensPedido, obterNomeLivro, pedidoDeveSerExibido } from '@/features/pedidos/utils/pedidoUtils'
+import { rotuloStatusPedido, statusPedidoCancelavelPorCliente } from '@/features/pedidos/utils/statusPedidoUtils'
 
-const cancelaveis = ['EM_PROCESSAMENTO', 'EM_SEPARACAO', 'NA_TRANSPORTADORA']
-function textoStatus(status) { return String(status || 'Não informado').replaceAll('_', ' ').toLocaleLowerCase('pt-BR').replace(/(^|\s)\S/g, (letra) => letra.toUpperCase()) }
+function textoStatus(status) { return rotuloStatusPedido(status) }
 function dataPedido(pedido) { const valor = pedido?.criadoEm || pedido?.dataCriacao || pedido?.dataPedido || pedido?.createdAt; if (!valor) return '' ; const data = new Date(valor); return Number.isNaN(data.getTime()) ? String(valor) : `Realizado em ${data.toLocaleDateString('pt-BR')}` }
 function quantidadeItens(pedido) { return obterItensPedido(pedido).reduce((total, item) => total + Number(item.quantidade || 0), 0) }
 export default function MeusPedidosPage() {
@@ -67,7 +67,6 @@ export default function MeusPedidosPage() {
 						{!carregando && !erro && pedidos.length > 0 && <div className="orders-list">
 							{pedidos.map((pedido) => {
 								const itens = obterItensPedido(pedido)
-								const status = String(pedido.status || '').toUpperCase()
 								return <article key={pedido.id} className="card order-card">
 									<div className="order-card-main">
 										<div>
@@ -77,7 +76,7 @@ export default function MeusPedidosPage() {
 										</div>
 										<strong className="order-card-total">R$ {Number(pedido.total ?? pedido.valorTotal ?? 0).toFixed(2).replace('.', ',')}</strong>
 									</div>
-									<div className="order-card-actions"><Link className="btn-secondary" to={`/meus-pedidos/${pedido.id}`}>Ver detalhes</Link>{cancelaveis.includes(status) && <button className="btn-danger" onClick={() => cancelar(pedido.id)}>Cancelar</button>}</div>
+									<div className="order-card-actions"><Link className="btn-secondary" to={`/meus-pedidos/${pedido.id}`}>Ver detalhes</Link>{statusPedidoCancelavelPorCliente(pedido.status) && <button className="btn-danger" onClick={() => cancelar(pedido.id)}>Cancelar</button>}</div>
 								</article>
 							})}
 						</div>}

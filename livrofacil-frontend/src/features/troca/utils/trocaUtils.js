@@ -1,12 +1,37 @@
 const TIME_ZONE = 'America/Sao_Paulo'
+const STATUS_TROCA_LEGADO = {
+  SOLICITADA: 'EM_TROCA',
+  AGUARDANDO_RECEBIMENTO: 'TROCA_AUTORIZADA',
+  AUTORIZADA: 'TROCA_AUTORIZADA',
+  CONCLUIDA: 'TROCADO',
+  TROCADA: 'TROCADO',
+}
+
+export const STATUS_TROCA_CANONICO = {
+  EM_TROCA: 'Em troca',
+  TROCA_AUTORIZADA: 'Troca autorizada · aguardando recebimento',
+  RECEBIDA: 'Recebida',
+  TROCADO: 'Trocado',
+  RECUSADA: 'Recusada',
+}
+
 const STATUS_COMPROMETIDOS = new Set([
-  'SOLICITADA',
-  'AGUARDANDO_RECEBIMENTO',
+  'EM_TROCA',
+  'TROCA_AUTORIZADA',
   'RECEBIDA',
-  'CONCLUIDA',
-  'AUTORIZADA',
-  'TROCADA',
+  'TROCADO',
+  'RECUSADA',
 ])
+
+export function mapearStatusTroca(status) {
+  const normalizado = String(status || '').trim().toUpperCase()
+  return STATUS_TROCA_LEGADO[normalizado] || normalizado
+}
+
+export function rotuloStatusTroca(status) {
+  const canonico = mapearStatusTroca(status)
+  return STATUS_TROCA_CANONICO[canonico] || 'Status desconhecido'
+}
 
 function dataLocalSaoPaulo(valor) {
   if (!valor) return null
@@ -54,9 +79,9 @@ export function quantidadeDisponivelTroca(itemPedido, solicitacoes = []) {
 
   const comprometida = solicitacoes.reduce((total, troca) => {
     if (String(troca?.itemPedidoId ?? '') !== String(itemId)) return total
-    const status = String(troca?.status || '').trim().toUpperCase()
+    const status = mapearStatusTroca(troca?.status)
     if (!STATUS_COMPROMETIDOS.has(status)) return total
-    const quantidade = status === 'CONCLUIDA' || status === 'TROCADA'
+    const quantidade = status === 'TROCADO'
       ? Number(troca?.quantidadeRecebida ?? troca?.quantidadeSolicitada ?? troca?.quantidade ?? 0)
       : Number(troca?.quantidadeSolicitada ?? troca?.quantidade ?? 0)
     return total + Math.max(0, quantidade)

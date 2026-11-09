@@ -12,29 +12,29 @@ import { obterClienteId, useAuth } from "@/features/auth/context/AuthContext"
 
 import { trocaService } from "@/features/troca/api/trocaService"
 
-import { formatarDinheiroTroca } from "@/features/troca/utils/trocaUtils"
+import {
+  formatarDinheiroTroca,
+  mapearStatusTroca,
+  rotuloStatusTroca,
+} from "@/features/troca/utils/trocaUtils"
 
 const statusCores = {
-  SOLICITADA: "badge-yellow",
-  AGUARDANDO_RECEBIMENTO: "badge-blue",
+  EM_TROCA: "badge-yellow",
+  TROCA_AUTORIZADA: "badge-blue",
   RECEBIDA: "badge-blue",
-  CONCLUIDA: "badge-green",
-  RECUSADA: "badge-red",
-  AUTORIZADA: "badge-blue",
-  TROCADA: "badge-green",
   TROCADO: "badge-green",
+  RECUSADA: "badge-red",
 }
 
 const statusNomes = {
-  SOLICITADA: "Solicitada",
-  AGUARDANDO_RECEBIMENTO: "Aguardando recebimento",
+  EM_TROCA: "Em troca",
+  TROCA_AUTORIZADA: "Troca autorizada · aguardando recebimento",
   RECEBIDA: "Recebida",
-  CONCLUIDA: "Concluída",
-  RECUSADA: "Recusada",
-  AUTORIZADA: "Autorizada (legado)",
-  TROCADA: "Trocada (legado)",
   TROCADO: "Trocado",
+  RECUSADA: "Recusada",
 }
+
+const statusOpcoes = Object.keys(statusNomes)
 
 function lista(resposta) {
   return Array.isArray(resposta)
@@ -46,7 +46,6 @@ function lista(resposta) {
 
 export default function MinhasTrocas() {
   const { usuario } = useAuth()
-
   const clienteId = obterClienteId(usuario)
 
   const [trocas, setTrocas] = useState([])
@@ -97,13 +96,14 @@ export default function MinhasTrocas() {
 
   const trocasFiltradas = useMemo(
     () =>
-      trocas.filter(
-        (troca) =>
-          (!statusFiltro ||
-            String(troca.status || "").toUpperCase() === statusFiltro) &&
+      trocas.filter((troca) => {
+        const status = mapearStatusTroca(troca?.status)
+        return (
+          (!statusFiltro || status === statusFiltro) &&
           (!tipoFiltro ||
-            String(troca.tipo || "").toUpperCase() === tipoFiltro),
-      ),
+            String(troca?.tipo || "").toUpperCase() === tipoFiltro)
+        )
+      }),
     [trocas, statusFiltro, tipoFiltro],
   )
 
@@ -261,18 +261,9 @@ export default function MinhasTrocas() {
                   onChange={(event) => setStatusFiltro(event.target.value)}
                 >
                   <option value="">Todos</option>
-                  {[
-                    "SOLICITADA",
-                    "AGUARDANDO_RECEBIMENTO",
-                    "RECEBIDA",
-                    "CONCLUIDA",
-                    "RECUSADA",
-                    "AUTORIZADA",
-                    "TROCADA",
-                    "TROCADO",
-                  ].map((s) => (
-                    <option key={s} value={s}>
-                      {statusNomes[s]}
+                  {statusOpcoes.map((status) => (
+                    <option key={status} value={status}>
+                      {statusNomes[status] || rotuloStatusTroca(status)}
                     </option>
                   ))}
                 </select>
@@ -308,7 +299,7 @@ export default function MinhasTrocas() {
                 style={{ display: "flex", flexDirection: "column", gap: 14 }}
               >
                 {trocasFiltradas.map((troca) => {
-                  const status = String(troca.status || "").toUpperCase()
+                  const status = mapearStatusTroca(troca?.status)
                   return (
                     <article
                       key={troca.id}
@@ -338,6 +329,7 @@ export default function MinhasTrocas() {
                               className={`badge ${statusCores[status] || "badge-gray"}`}
                             >
                               {statusNomes[status] ||
+                                rotuloStatusTroca(status) ||
                                 troca.status ||
                                 "Não informado"}
                             </span>
@@ -383,9 +375,7 @@ export default function MinhasTrocas() {
                           <strong>Justificativa:</strong> {troca.motivoRecusa}
                         </p>
                       )}
-                      {(status === "CONCLUIDA" ||
-                        status === "TROCADA" ||
-                        status === "TROCADO") && (
+                      {status === "TROCADO" && (
                         <p data-testid="credito-troca">
                           Crédito em voucher:{" "}
                           {formatarDinheiroTroca(troca.voucherValor)}{" "}
@@ -411,3 +401,4 @@ export default function MinhasTrocas() {
     </div>
   )
 }
+

@@ -4,7 +4,7 @@ const pedidoId = 320
 const pedido = {
   id: pedidoId,
   clienteId,
-  status: 'EM_SEPARACAO',
+  status: 'EM_PROCESSAMENTO',
   total: 42.5,
   rastreamento: {
     etapa: 'Preparando para envio',

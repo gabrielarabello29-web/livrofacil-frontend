@@ -9,9 +9,10 @@ import { obterClienteId, useAuth } from '@/features/auth/context/AuthContext'
 import { buscarMeuPedido } from '@/features/checkout/api/checkoutApi'
 import { enriquecerItensComLivros, obterImagemLivro, obterItensPedido, obterNomeLivro } from '@/features/pedidos/utils/pedidoUtils'
 import { prazoTroca } from '@/features/troca/utils/trocaUtils'
+import { rotuloStatusPedido } from '@/features/pedidos/utils/statusPedidoUtils'
 
 function dinheiro(valor) { return `R$ ${Number(valor || 0).toFixed(2).replace('.', ',')}` }
-function statusTexto(status) { return String(status || 'Não informado').replaceAll('_', ' ').toLocaleLowerCase('pt-BR').replace(/(^|\s)\S/g, (letra) => letra.toUpperCase()) }
+function statusTexto(status) { return rotuloStatusPedido(status) }
 function dataTexto(pedido) { const valor = pedido?.criadoEm || pedido?.dataCriacao || pedido?.dataPedido || pedido?.createdAt; if (!valor) return 'Data não informada'; const data = new Date(valor); return Number.isNaN(data.getTime()) ? String(valor) : data.toLocaleString('pt-BR') }
 function obterEndereco(pedido, cobranca = false) { return cobranca ? pedido?.enderecoCobranca || pedido?.enderecoCobrancaObjeto : pedido?.enderecoEntrega || pedido?.enderecoEntregaObjeto || pedido?.endereco }
 function enderecoTexto(endereco) { if (!endereco) return 'Endereço não informado no pedido.'; if (typeof endereco === 'string') return endereco; return `${endereco.logradouro || ''}${endereco.numero ? `, ${endereco.numero}` : ''}${endereco.complemento ? ` - ${endereco.complemento}` : ''}${endereco.bairro ? ` - ${endereco.bairro}` : ''}${endereco.cidade ? `, ${endereco.cidade}` : ''}${endereco.estado ? `/${endereco.estado}` : ''}${endereco.cep ? ` - CEP ${endereco.cep}` : ''}` }

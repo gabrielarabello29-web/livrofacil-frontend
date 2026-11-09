@@ -15,24 +15,16 @@ import { trocaService } from "@/features/troca/api/trocaService"
 import {
   formatarDataTroca,
   formatarDinheiroTroca,
+  mapearStatusTroca,
+  rotuloStatusTroca,
 } from "@/features/troca/utils/trocaUtils"
 
 const statusLabel = {
-  SOLICITADA: "Solicitada",
-
-  AGUARDANDO_RECEBIMENTO: "Aguardando recebimento",
-
+  EM_TROCA: "Em troca",
+  TROCA_AUTORIZADA: "Troca autorizada · aguardando recebimento",
   RECEBIDA: "Recebida",
-
-  CONCLUIDA: "Concluída",
-
-  RECUSADA: "Recusada",
-
-  AUTORIZADA: "Autorizada (legado)",
-
-  TROCADA: "Trocada (legado)",
-
   TROCADO: "Trocado",
+  RECUSADA: "Recusada",
 }
 
 function normalizarLista(resposta) {
@@ -95,10 +87,9 @@ export default function TrocaDetalhe() {
     carregar()
   }, [clienteId, trocaId])
 
-  const status = String(troca?.status || "").toUpperCase()
+  const status = mapearStatusTroca(troca?.status)
 
-  const concluida =
-    status === "CONCLUIDA" || status === "TROCADA" || status === "TROCADO"
+  const concluida = status === "TROCADO"
 
   return (
     <div>
@@ -147,7 +138,9 @@ export default function TrocaDetalhe() {
                   >
                     <h2 style={{ margin: 0 }}>Pedido #{troca.pedidoId}</h2>
                     <span className="badge badge-purple">
-                      {statusLabel[status] || troca.status}
+                      {statusLabel[status] ||
+                        rotuloStatusTroca(status) ||
+                        troca.status}
                     </span>
                   </div>
                   <dl
@@ -254,8 +247,10 @@ export default function TrocaDetalhe() {
                         <li key={evento.id}>
                           <strong>
                             {statusLabel[
-                              String(evento.status || "").toUpperCase()
-                            ] || evento.status}
+                              mapearStatusTroca(evento?.status)
+                            ] ||
+                              rotuloStatusTroca(evento?.status) ||
+                              evento.status}
                           </strong>
                           <div>{formatarDataTroca(evento.criadoEm)}</div>
                           {evento.observacao && <p>{evento.observacao}</p>}

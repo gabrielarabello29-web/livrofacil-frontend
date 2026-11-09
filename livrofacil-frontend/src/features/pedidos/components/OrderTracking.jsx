@@ -7,7 +7,7 @@ function formatarAtualizacao(valor) {
   return Number.isNaN(data.getTime()) ? String(valor) : data.toLocaleString('pt-BR')
 }
 
-export default function OrderTracking({ rastreamento }) {
+export default function OrderTracking({ pedido, rastreamento = pedido?.rastreamento }) {
   if (!rastreamento) return null
 
   return (

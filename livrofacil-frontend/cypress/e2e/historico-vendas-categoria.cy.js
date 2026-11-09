@@ -224,7 +224,7 @@ describe('Histórico de vendas por categoria', () => {
 
   it('CT006 — atualiza o relatório quando um pedido passa para ENTREGUE', () => {
     // Fixture state proves the frontend transition/readback contract, not backend/database persistence.
-    const pedido = { id: 87, clienteNome: 'Cliente E2E', status: 'PAGAMENTO_APROVADO', total: 119.9 }
+    const pedido = { id: 87, clienteNome: 'Cliente E2E', status: 'APROVADA', total: 119.9 }
     const statusLidos = []
 
     cy.intercept('GET', '**/api/livros/opcoes/categorias', {
@@ -277,13 +277,11 @@ describe('Histórico de vendas por categoria', () => {
     })
     cy.wait('@listarPedidosAdmin')
     const transicoes = [
-      ['EM_SEPARACAO', 'Em separação'],
-      ['NA_TRANSPORTADORA', 'Na transportadora'],
-      ['EM_ROTA_DE_ENTREGA', 'Em rota de entrega'],
-      ['ENTREGUE', 'Entregue'],
+      ['EM_TRANSPORTE', 'Em transporte', 'Despachar pedido'],
+      ['ENTREGUE', 'Entregue', 'Confirmar entrega'],
     ]
-    transicoes.forEach(([status, textoStatus]) => {
-      cy.contains('tr', 'Cliente E2E').contains('button', 'Avançar').click()
+    transicoes.forEach(([status, textoStatus, textoAcao]) => {
+      cy.contains('tr', 'Cliente E2E').contains('button', textoAcao).click()
       cy.wait('@atualizarStatusPedido').then(({ request, response }) => {
         expect(request.body.status).to.equal(status)
         expect(response.body.status).to.equal(status)
@@ -345,16 +343,16 @@ describe('Histórico de vendas por categoria', () => {
       series: [{ categoriaId: 1, categoriaNome: 'Romance', valores: [100, 200, 300] }],
     })
 
-    const inicio = performance.now()
-
     autenticarUsuario('ADMIN')
     cy.wait('@listarCategorias')
     cy.contains('button', 'Romance').click()
-    cy.contains('button', 'Aplicar filtros').click()
-
-    cy.wait('@relatorioVendasCategoria').then(() => {
-      const tempoDecorrido = performance.now() - inicio
-      expect(tempoDecorrido).to.be.lessThan(5000)
+    cy.then(() => {
+      const inicio = performance.now()
+      cy.contains('button', 'Aplicar filtros').click()
+      cy.wait('@relatorioVendasCategoria').then(() => {
+        const tempoDecorrido = performance.now() - inicio
+        expect(tempoDecorrido).to.be.lessThan(5000)
+      })
     })
 
     cy.get('[role="img"]').should('contain.text', 'Romance')

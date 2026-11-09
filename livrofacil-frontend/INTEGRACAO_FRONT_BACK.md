@@ -50,7 +50,7 @@ Quando algo não existir, declare explicitamente que não há endpoint ou que ai
 - Aplicar código: `POST /pedidos/{pedidoId}/cupons?clienteId={uuid}` com `{ "codigo": "..." }`. A resposta contém o pedido atualizado (`subtotal`, `desconto`, `total`).
 - Finalizar: `POST /pedidos/{pedidoId}/finalizar?clienteId={uuid}`. Pagamentos de cartão devem somar o `total` atualizado. `pagamentos: []` só é aceito quando o voucher zerou o total; com saldo positivo, deve haver cartão.
 - A listagem administrativa é `GET /pedidos/admin`; a tela atual espera uma lista com cliente, status, totais, itens e pagamentos.
-- Status possíveis incluem `PENDENTE`, `AGUARDANDO_PAGAMENTO`, `EM_CHECKOUT`, `EM_PROCESSAMENTO`, `PAGAMENTO_APROVADO`, `EM_SEPARACAO`, `NA_TRANSPORTADORA`, `EM_ROTA_DE_ENTREGA`, `ENTREGUE`, `FINALIZADO` e `CANCELADO`.
+- Status possíveis incluem `PENDENTE`, `AGUARDANDO_PAGAMENTO`, `EM_CHECKOUT`, `EM_PROCESSAMENTO`, `APROVADA`, `REPROVADA`, `EM_TRANSPORTE`, `ENTREGUE`, `FINALIZADO` e `CANCELADO`.
 
 ### Cupons e vouchers
 
@@ -63,7 +63,7 @@ Quando algo não existir, declare explicitamente que não há endpoint ou que ai
 
 - Solicitar: `POST /trocas` com `clienteId` UUID, `pedidoId` numérico, `motivo`, `detalhes` opcional e `itemPedidoId` numérico ou `livroId` numérico (`produtoId` é alias de `livroId`).
 - O pedido deve pertencer ao cliente e estar `ENTREGUE`. Um item não pode ter troca aberta/concluída; troca recusada pode ser solicitada novamente.
-- Estados: `SOLICITADA` para `AUTORIZADA` ou `RECUSADA`; autorizada pode ser recebida e virar `TROCADA`.
+- Estados canônicos: `EM_TROCA`, `TROCA_AUTORIZADA`, `RECEBIDA`, `TROCADO` e `RECUSADA`. Validades legadas como `SOLICITADA`, `AGUARDANDO_RECEBIMENTO`, `AUTORIZADA`, `CONCLUIDA` e `TROCADA` são mapeadas no frontend para o contrato atual antes de renderizar e filtrar.
 - Administração: `PATCH /trocas/{id}/autorizar`; `PATCH /trocas/{id}/recusar` com `{ "motivo": "..." }`; `PATCH /trocas/{id}/receber` com `{ "retornarEstoque": true|false }`.
 - Receber uma troca autorizada emite voucher de uso único, ligado ao cliente e à troca. Não tem expiração implementada. O valor é preço unitário registrado na compra multiplicado pela quantidade.
 

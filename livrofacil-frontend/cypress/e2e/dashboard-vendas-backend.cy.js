@@ -3,7 +3,7 @@ function formatarMoeda(valor) {
 }
 
 describe('Dashboard administrativo integrado ao backend', () => {
-  it('exibe o Total geral retornado pelo backend e reconhece pedidos finalizados', () => {
+  it('exibe o Total geral e mantém filtros e status agrupados conforme o contrato', () => {
     cy.request('/api/clientes').then(({ status, body }) => {
       expect(status).to.equal(200)
       const admin = body.find((cliente) => cliente.perfil === 'ADMIN')
@@ -50,12 +50,28 @@ describe('Dashboard administrativo integrado ao backend', () => {
 
       cy.wait('@dashboardPedidos').then(({ response }) => {
         expect(response.statusCode).to.equal(200)
-        expect(response.body.some((pedido) => pedido.status === 'FINALIZADO')).to.equal(true)
-        cy.contains('span', 'Finalizado').should('be.visible')
+        const legenda = cy.get('[aria-label="Legenda de pedidos por status"]')
+        legenda.within(() => {
+          cy.contains('.admin-status-legend-label', 'Em processamento').should('be.visible')
+          cy.contains('.admin-status-legend-label', 'Pagamento aprovado').should('be.visible')
+          cy.contains('.admin-status-legend-label', 'Pagamento rejeitado').should('be.visible')
+          cy.contains('.admin-status-legend-label', 'Em transporte').should('be.visible')
+          cy.contains('.admin-status-legend-label', 'Entregue').should('be.visible')
+          cy.contains('.admin-status-legend-label', 'Cancelado').should('be.visible')
+          cy.contains('.admin-status-legend-label', 'Finalizado').should('not.exist')
+        })
 
-        if (response.body.some((pedido) => pedido.status === 'ENTREGUE')) {
-          cy.contains('span', 'Entregue').should('be.visible')
-        }
+        cy.get('@dashboardRelatorio.all').then((relatoriosAntesDoFiltroStatus) => {
+          cy.get('[aria-label="Período das vendas"]').should('have.value', '365')
+          cy.get('[aria-label="Período dos pedidos por status"]').should('have.value', '365').select('30')
+          cy.get('[aria-label="Período das vendas"]').should('have.value', '365')
+          cy.get('[aria-label="Período dos pedidos por status"]').should('have.value', '30')
+          cy.get('@dashboardRelatorio.all').should('have.length', relatoriosAntesDoFiltroStatus.length)
+        })
+
+        cy.get('[aria-label="Período das vendas"]').select('30')
+        cy.wait('@dashboardRelatorio').its('response.statusCode').should('equal', 200)
+        cy.get('[aria-label="Período dos pedidos por status"]').should('have.value', '30')
       })
     })
   })

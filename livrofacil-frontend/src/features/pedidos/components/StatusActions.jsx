@@ -1,27 +1,24 @@
 import React from 'react'
 import { useState } from 'react'
-import { vendaService } from '@/features/vendas/api/vendaService'
+import { pedidoService } from '@/features/pedidos/api/pedidoService'
+import { mapearStatusPedido } from '@/features/pedidos/utils/statusPedidoUtils'
 
 const TRANSITIONS = {
-  'Em aberto': ['Em processamento'],
-  'Em processamento': ['Pagamento realizado'],
-  'Pagamento realizado': ['Em trânsito'],
-  'Em trânsito': ['Entregue'],
-  'Troca solicitada': ['Troca aceita', 'Troca negada'],
-  'Item enviado': ['Item recebido'],
-  'Item recebido': ['Troca processada'],
+  EM_PROCESSAMENTO: ['APROVADA', 'REPROVADA'],
+  APROVADA: ['EM_TRANSPORTE'],
+  EM_TRANSPORTE: ['ENTREGUE'],
 }
 
 export default function StatusActions({ statusAtual, vendaId, onAtualizado }) {
   const [loading, setLoading] = useState(false)
-  const opcoes = TRANSITIONS[statusAtual] || []
+  const statusCanonico = mapearStatusPedido(statusAtual)
+  const opcoes = TRANSITIONS[statusCanonico] || []
 
   async function mudarStatus(novo) {
-    if (!confirm(`Alterar status para "${novo}"?`)) return
+    if (!confirm(`Confirmar a ação: "${LABELS[novo] || novo}"?`)) return
     setLoading(true)
     try {
-      const safeId = String(vendaId).replace(/^#/, '')
-      await vendaService.atualizarStatusVenda(encodeURIComponent(safeId), novo)
+      await pedidoService.atualizarStatusAdmin(encodeURIComponent(String(vendaId).replace(/^#/, '')), novo)
       onAtualizado && onAtualizado(novo)
     } catch (err) {
       console.error(err)
@@ -35,7 +32,14 @@ export default function StatusActions({ statusAtual, vendaId, onAtualizado }) {
 
   return (
     <div style={{ display: 'flex', gap: 8 }}>
-      {opcoes.map(o => <button key={o} className="btn-ghost" disabled={loading} onClick={() => mudarStatus(o)}>{o}</button>)}
+      {opcoes.map((o) => <button key={o} className="btn-ghost" disabled={loading} onClick={() => mudarStatus(o)}>{LABELS[o] || o}</button>)}
     </div>
   )
+}
+
+const LABELS = {
+  APROVADA: 'Aprovar pagamento',
+  REPROVADA: 'Reprovar pagamento',
+  EM_TRANSPORTE: 'Despachar pedido',
+  ENTREGUE: 'Confirmar entrega',
 }
