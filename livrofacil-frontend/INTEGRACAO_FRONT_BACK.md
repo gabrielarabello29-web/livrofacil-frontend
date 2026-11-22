@@ -36,6 +36,71 @@ Quando algo não existir, declare explicitamente que não há endpoint ou que ai
 - O backend atual não exige token/cookie e não aplica autorização de perfil às rotas administrativas. A proteção `ProtectedRoute` do frontend é controle de navegação, não segurança de API.
 - CORS permite a origem local `http://localhost:5173` para `/api/**`; também é possível usar o proxy `/api` configurado no Vite.
 
+### Chat de recomendação e preferências literárias
+
+Os caminhos completos abaixo incluem o prefixo `/api`. O widget só é renderizado no frontend quando existe um usuário com `perfil: "CLIENTE"` e `clienteId` UUID válido. As chamadas de chat repetem essa validação no service. Esta restrição de interface não substitui autenticação/autorização no backend.
+
+- Enviar mensagem: `POST /api/chat/mensagens`.
+  ```json
+  {
+    "clienteId": "uuid-do-cliente",
+    "sessaoId": null,
+    "mensagem": "Quero um romance com mistério"
+  }
+  ```
+  A resposta deve conter:
+  ```json
+  {
+    "sessaoId": "uuid-da-sessao",
+    "mensagemId": "uuid-da-resposta",
+    "texto": "Encontrei algumas opções...",
+    "livros": [
+      {
+        "livroId": 123,
+        "titulo": "Título",
+        "autor": "Nome do autor",
+        "imagemUrl": "https://exemplo.com/capa.jpg",
+        "preco": 39.9,
+        "url": "/livros/123"
+      }
+    ]
+  }
+  ```
+  O frontend envia `sessaoId: null` na primeira mensagem e utiliza o `sessaoId` retornado nas próximas mensagens da mesma sessão. Cada resposta persistida da IA deve possuir `mensagemId`, usado para avaliação. Preferências e histórico devem ser obtidos pelo backend usando o cliente; o frontend não envia dados de histórico.
+
+- Registrar/atualizar avaliação: `POST /api/chat/feedback`. A operação é idempotente por cliente/resposta para permitir alterar a avaliação.
+  ```json
+  {
+    "clienteId": "uuid-do-cliente",
+    "mensagemId": "uuid-da-resposta",
+    "avaliacao": "UTIL",
+    "comentario": ""
+  }
+  ```
+  `avaliacao` aceita `UTIL` ou `NAO_UTIL`; `comentario` é string e pode estar vazio. Resposta de sucesso sugerida:
+  ```json
+  {
+    "feedbackId": "uuid-do-feedback",
+    "mensagemId": "uuid-da-resposta",
+    "avaliacao": "UTIL",
+    "criadoEm": "2026-11-19T12:00:00Z"
+  }
+  ```
+
+- Consultar preferências: `GET /api/clientes/{clienteId}/preferencias-literarias`. Atualizar: `PUT` no mesmo caminho, com request e response neste formato:
+  ```json
+  {
+    "categoriaIds": [12, 34],
+    "temasDeInteresse": ["mistério", "ficção histórica"],
+    "precoMinimo": null,
+    "precoMaximo": 80
+  }
+  ```
+  `categoriaIds` são IDs numéricos de categorias existentes; `temasDeInteresse` é uma lista de strings; preços são números ou `null`. Quando ainda não houver preferências, o `GET` deve retornar esse formato com arrays vazios e preços `null`, permitindo edição sem falha. A tela consulta as categorias disponíveis em `GET /api/livros/opcoes/categorias`.
+
+- O requisito desta entrega não adiciona JWT ou cookie HttpOnly: a elegibilidade é validada na interface e no service. Como o backend atual não autentica os endpoints, `clienteId` no payload não comprova a identidade do solicitante.
+- Cards de livros retornados pelo endpoint são apresentados somente dentro do widget; não criar recomendações ou vitrines fora do chat.
+
 ### Livros
 
 - Cadastro e edição existentes: `POST /livros` e `PUT /livros/{id}`.
