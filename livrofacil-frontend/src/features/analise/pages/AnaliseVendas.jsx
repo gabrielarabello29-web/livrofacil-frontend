@@ -244,7 +244,7 @@ export default function AdminAnalise() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0, flex: 1 }}>
               <h1 style={{ margin: '0 0 4px', fontSize: isMobile ? 20 : 22, fontWeight: 800 }}>Relatórios</h1>
-              <p style={{ margin: 0, fontSize: isMobile ? 13 : 14, color: 'var(--text-muted)' }}>Vendas de pedidos entregues ou finalizados, conforme os valores retornados pelo backend</p>
+              <p style={{ margin: 0, fontSize: isMobile ? 13 : 14, color: 'var(--text-muted)' }}>Vendas de pedidos entregues ou finalizados</p>
             </div>
           </div>
 
